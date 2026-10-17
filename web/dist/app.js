@@ -1,3 +1,4 @@
+import { initializeVisualAnalysis } from './visual.js';
 import { extractFeatures, predict, validateModel, validateBox } from './ml.js';
 
 const $ = id => document.getElementById(id);
@@ -8,6 +9,8 @@ const labels={nail:'Middle nail',skin:'Nearby skin',white:'White reference'};
 const prompts={nail:'Draw around the middle fingernail',skin:'Draw around a clear area of nearby skin',white:'Draw around the plain white reference'};
 let model=null, stream=null, cameraRequest=0, facing='user', mode='empty', active='nail', boxes={}, drag=null, snapshot=null, lastSource='camera';
 let loadVersion=0;
+const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null});
+function photoNotice(message){notice(message+' Hemoglobin estimation stays local; optional visual analysis requires permission to send photos.');}
 function show(id,yes){$(id).hidden=!yes;}
 function error(message){$('error').textContent=message;show('error',Boolean(message));}
 function notice(message){$('notice').textContent=message;}
@@ -38,7 +41,7 @@ async function startCamera(){
     stream=media;video.srcObject=media;await video.play();
     if(request!==cameraRequest)return;
     if(!video.videoWidth)await new Promise(resolve=>video.addEventListener('loadedmetadata',resolve,{once:true}));
-    snapshot=null;boxes={};$('box-layer').replaceChildren();setMode('live');notice('Keep your whole middle nail, nearby skin, and a white reference in the frame.');
+    snapshot=null;boxes={};visual.reset(false);$('box-layer').replaceChildren();setMode('live');notice('Keep your whole middle nail, nearby skin, and a white reference in the frame.');
     const track=media.getVideoTracks()[0];track.addEventListener('ended',()=>{if(mode==='live'){stopCamera();error('The camera disconnected. Reconnect it or upload a photo.');}});
   }catch(e){
     if(request!==cameraRequest)return;
@@ -54,15 +57,15 @@ function loadSnapshot(source,width,height,origin){
   if(width*height>24000000)throw new Error('This photo is too large. Use a photo under 24 megapixels.');
   photo.width=width;photo.height=height;context.drawImage(source,0,0,width,height);
   snapshot=context.getImageData(0,0,width,height);cameraRequest++;stopTracks();
-  boxes={};lastSource=origin;setMode('photo');selectRegion('nail');error('');
-  notice('Photo captured. Mark the nail, nearby skin, and white reference. Nothing is uploaded.');
+  boxes={};lastSource=origin;visual.reset(true);setMode('photo');selectRegion('nail');error('');
+  photoNotice('Photo captured. Mark the three regions for hemoglobin, or look at visible features below.');
 }
 $('start-camera').addEventListener('click',startCamera);
 $('capture-button').addEventListener('click',()=>{
   if(mode!=='live'||!video.videoWidth)return;
   try{loadSnapshot(video,video.videoWidth,video.videoHeight,'camera');}catch(e){error(e.message);}
 });
-$('stop-camera').addEventListener('click',()=>{stopCamera();notice('Camera stopped. Your photos stay on this device.');});
+$('stop-camera').addEventListener('click',()=>{stopCamera();photoNotice('Camera stopped.');});
 $('switch-camera').addEventListener('click',async()=>{
   $('switch-camera').disabled=true;facing=facing==='user'?'environment':'user';
   try{await startCamera();}finally{$('switch-camera').disabled=false;}
@@ -81,7 +84,7 @@ $('file-input').addEventListener('change',async event=>{
   finally{$('upload-button').disabled=false;event.target.value='';}
 });
 async function retake(){
-  error('');snapshot=null;boxes={};drag=null;$('box-layer').replaceChildren();context.clearRect(0,0,photo.width,photo.height);setMode('empty');
+  error('');snapshot=null;boxes={};drag=null;visual.reset(false);$('box-layer').replaceChildren();context.clearRect(0,0,photo.width,photo.height);setMode('empty');
   if(lastSource==='camera')await startCamera();else{notice('Upload another photo, or turn on your camera.');$('upload-button').focus();}
 }
 $('retake-button').addEventListener('click',retake);$('new-scan').addEventListener('click',retake);
@@ -161,7 +164,7 @@ $('predict-button').addEventListener('click',async()=>{
       const title=document.createElement('strong');title.textContent='Photo quality notes';const list=document.createElement('ul');
       for(const warning of warnings){const li=document.createElement('li');li.textContent=warning;list.append(li);}warningArea.append(title,list);
     }
-    show('quality-warnings',warnings.length>0);setMode('result');drawBoxes();notice('Estimate calculated on your device. Your photo has not been uploaded or saved.');
+    show('quality-warnings',warnings.length>0);setMode('result');drawBoxes();photoNotice('Hemoglobin estimate calculated on your device.');
     $('result-panel').setAttribute('tabindex','-1');$('result-panel').focus({preventScroll:true});
     if(window.innerWidth<740)$('result-panel').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
   }catch(e){error(e.message);}

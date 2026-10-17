@@ -1,13 +1,13 @@
 # Kera Camera
 
-A static, private webcam app using the project's **actual trained three-seed MLP ensemble**. No backend or third-party inference service is involved. All image processing and model inference happen in the browser; photos are not transmitted or persisted by the application.
+A webcam app using the project's **actual trained three-seed MLP ensemble** for on-device hemoglobin estimation, plus optional OpenAI vision observations of nail morphology. The numeric estimate stays in the browser. Visual observations send resized photos to OpenAI only after explicit consent.
 
 ## Run locally
 
 From the parent Kera workspace:
 
 ```bash
-python3 -m http.server 4173 --bind 127.0.0.1 --directory web/dist
+npm --prefix web start
 ```
 
 Open `http://localhost:4173`. A webcam requires browser permission and a secure context (HTTPS or localhost). Open the site directly in a browser if an embedded preview does not allow camera permission. Uploading a JPEG/PNG/WebP is available as an alternative.
@@ -17,6 +17,18 @@ Open `http://localhost:4173`. A webcam requires browser permission and a secure 
 3. Choose **Get estimate**. The result is a continuous hemoglobin estimate in g/L, with photo-quality warnings when applicable.
 
 The camera stops when you capture, stop the feed, leave the page, or replace it with an uploaded image. A retake clears the previous prediction. Photos are kept only in page memory; the browser/OS may have their own lifecycle behavior. No history, accounts, analytics, or photo storage is added by this app.
+
+## Optional visual observations
+
+After capture or upload, choose **Look at visible features**. Preview the top photo, optionally add a side view of the same finger, and check the consent box before sending. No region annotations or white reference are required for this separate flow. It describes surface pits, lifting, splitting/crumbling, nail-fold swelling, spoon-like shape and clubbing-like shape, using **visible**, **not observed**, or **unclear**. Without a side view, shape findings are always unclear.
+
+The local Node 22+ server uses the OpenAI Responses API with a strict structured-output schema. Default model: `gpt-4.1`; configurable with `OPENAI_VISION_MODEL`. To enable it, copy `web/.env.example` to `web/.env`, set `OPENAI_API_KEY`, then restart the server. No npm dependencies are needed. Keep the key out of `dist/`; `.env` is ignored by Git. Without a key, the app explains that visual analysis is unavailable and the local hemoglobin estimate still works.
+
+This is an experimental morphology description, not disease detection or diagnosis. It does not infer anemia, nutrient deficiency, fungal disease, psoriasis, cancer, blood oxygen, or treatment. A feature not observed is not ruled out. There are no validated confidence percentages or clinical accuracy claims. Schema and prose checks reduce unwanted output but cannot establish medical correctness. A clinician must assess changes or concerns.
+
+Privacy: the browser makes resized JPEG copies up to 1600 px on the longest edge, removing original file metadata. Kera does not log or save photos or observations. The server holds them in memory during a request, sends them only to the fixed OpenAI endpoint with `store: false`, and returns structured findings. OpenAI retention policies may still apply; `store: false` is not a zero-retention guarantee. See [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data). Canceling or replacing a photo aborts the request but cannot recall photos already sent.
+
+The server binds only to localhost, validates Host/Origin, limits body size and requests, allows one analysis at a time, and times out provider calls. It is a local development server; public hosting would require authentication, per-user quotas and a protected deployment. No public deployment is included.
 
 ## The real neural network
 
@@ -37,12 +49,19 @@ The parity fixtures use ten training patients, with no labels or patient identif
 
 ## Verification
 
+```bash
+npm --prefix web test
+```
+
+The 15 vision unit/integration tests use a synthetic gray JPEG and an injected provider; they never contact OpenAI. They cover consent, input validation, origins, credential isolation, structured findings, refusal, errors, missing side views, unusable images, request limits and timeout handling. Browser vision tests additionally exercise consent, optional side photos, results, failure, cancellation, replacing photos during analysis and responsive layouts. They use a local mock provider, not a simulated production result.
+
+
 - Eight Node tests cover CPU parity, feature ordering/normalization, NumPy-style percentile interpolation, central crop geometry, input validation, overlap/reference rejection, quality warnings and schema checks.
 - Thirteen Chrome integration checks cover initial loading, simulated live media, capture/releasing tracks, actual mouse selection, upload/coordinate selection, prediction, invalid annotations, model notes, network privacy, no JavaScript exceptions, tablet/mobile overflow, and permission-denial fallback.
 - Physical webcam hardware was not verified. Chrome's test media device exercises the real getUserMedia/capture code path.
 - Responsive screenshots at 1440, 768 and 390 pixels and browser test reports are local in ignored `reports/`. These include a public-study image used for local testing and are excluded from the hosted source and deployment.
 
-`tests/browser.mjs` uses the consulted taste skill's zero-dependency Chrome helper. Its import path is specific to this development environment and it needs an installed Chrome plus the original dataset image 1 for the upload smoke test. The production app has no dependency on that helper, Python, PyTorch, or the dataset. The eight inference tests need only Node >=22 and the exported fixtures.
+`tests/browser.mjs` and `tests/vision-browser.mjs` use the consulted taste skill's zero-dependency Chrome helper. Its import path is specific to this development environment and it needs an installed Chrome plus the original dataset image 1 for the upload smoke test. The production app has no dependency on that helper, Python, PyTorch, or the dataset. The 23 inference/API tests need only Node >=22 and the checked-in fixtures. The vision browser test uses its synthetic fixture and never needs the dataset. Run `node web/tests/vision-browser.mjs` from the repository root.
 
 ## Design
 
@@ -52,10 +71,8 @@ The skill's marketing-page image-count, footage, and motion-floor rules are docu
 
 ## Hosting
 
-`.openai/hosting.json` identifies the private Site and serves the buildless `dist/` directory. Only the static app, user-provided logo and frozen neural weights are required for deployment. No patient images are in `dist/`; no camera upload endpoint exists. A deployment archive is generated outside the web source directory by the Sites source helper.
+Run `server.mjs` for both the app and optional vision endpoint. A static host can still run the local hemoglobin model, but cannot serve visual analysis. The standalone archive includes the static assets, Node server, configuration example and this guide. The private Site previously registered for the static app has not been deployed; there is no public deployment of the vision backend.
 
 ## Research limitations
 
 This model is experimental and is not a diagnostic device. Aggregate held-out MLP MAE was 15.96 g/L on 50 study patients; that is not an individual reading's uncertainty. Low hemoglobin was often overestimated. Webcam and Kera Dock camera transfer have not been clinically validated. The project selected Elastic Net using cross-validation; this app intentionally uses the requested MLP rather than silently substituting that baseline. The model notes explain this distinction. Any health concern requires clinical assessment and laboratory testing.
-
-Current delivery status: the app is complete and verified locally at `http://localhost:4173`; the standalone archive is `../artifacts/kera_web_app.zip`. A private Site was registered, but its source/model have **not been pushed or deployed**. Automatic approval review rejected external publication because deployment to that hosting destination was not explicitly authorized. The existing Site ID is retained for a later approved deployment; do not create another Site.

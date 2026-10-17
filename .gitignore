@@ -21,3 +21,8 @@ reports/**/*.webp
 .codex/
 web/.openai/
 references/Usage Notes.ipynb
+
+# Server credentials
+.env
+.env.*
+!.env.example

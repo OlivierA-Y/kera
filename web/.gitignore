@@ -2,3 +2,7 @@ reports/
 node_modules/
 .sites-runtime/
 .DS_Store
+
+.env
+.env.*
+!.env.example

@@ -14,7 +14,7 @@
   <header class="header">
     <a href="./" class="brand" aria-label="Kera home"><img src="./assets/kera-logo.png" width="140" height="43" alt="Kera"></a>
     <nav aria-label="Main navigation"><a href="#workspace" aria-current="page">Capture</a><button class="text-button" id="about-button">About the model <span aria-hidden="true">↗</span></button></nav>
-    <span class="privacy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Only on your device</span>
+    <span class="privacy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Local Hb. Optional vision.</span>
   </header>
 
   <main id="workspace">
@@ -40,7 +40,7 @@
           <button id="capture-button" class="button dark-button" disabled><span class="shutter-icon" aria-hidden="true"></span>Take photo</button>
           <button id="retake-button" class="button dark-button" hidden>Retake photo <span aria-hidden="true">↻</span></button>
         </div>
-        <p id="notice" class="notice" role="status" aria-live="polite">Your photos stay in this browser. Nothing is uploaded.</p>
+        <p id="notice" class="notice" role="status" aria-live="polite">Hemoglobin estimation stays on your device. Optional visual analysis sends photos only with your permission.</p>
         <div id="error" class="error" role="alert" hidden></div>
       </section>
 
@@ -67,9 +67,25 @@
         <p class="model-note" id="model-note">Loading the trained neural network…</p>
       </aside>
     </div>
+    <section id="visual-analysis" class="visual-section" aria-labelledby="visual-title" hidden>
+      <div class="visual-intro"><div><h2 id="visual-title">A look at the details.</h2><p>Optional visual nail observations, separate from your hemoglobin estimate.</p></div><button id="open-vision" class="button dark-button">Look at visible features ↗</button></div>
+      <p class="visual-description">Look for surface pits, lifting, cracks and swelling. An optional side photo helps assess nail shape. No regions need to be marked.</p>
+      <p id="vision-remote-note" class="small-note" hidden>You chose remote visual analysis for this photo. Kera does not save the photos or observations. OpenAI’s data policies apply.</p>
+      <div id="vision-busy" class="vision-busy" role="status" hidden><span class="vision-loader" aria-hidden="true"></span>Looking at the visible features… <button id="cancel-vision" class="text-button" hidden>Cancel request</button></div>
+      <div id="vision-error" class="error" role="alert" hidden></div>
+      <div id="vision-results" class="vision-results" aria-live="polite" hidden></div>
+    </section>
     <footer class="footer"><p>Research in progress.<br>Not a diagnostic device.</p><p>A different camera or lighting can change the estimate.<br>Webcam use has not been clinically validated.</p><button class="text-button" id="footer-about">Read the model notes ↗</button></footer>
   </main>
-  <dialog id="model-dialog" aria-labelledby="dialog-title"><div class="dialog-header"><h2 id="dialog-title">A note on the model.</h2><button class="icon-button close-dialog" aria-label="Close model notes">×</button></div><p>Kera estimates hemoglobin from 42 color measurements of a middle fingernail and nearby skin, normalized to a white reference in the same photo.</p><p>This app runs the trained three-network ensemble entirely on your device: 42 inputs, 16 and 8 hidden neurons, and one output. It uses the frozen PyTorch weights exported from this project. Photos are never uploaded or saved by the app.</p><div class="model-stat"><strong>15.96 g/L</strong><span>Mean absolute error on the study’s 50 held-out patients. This is an aggregate study result, not a margin of error for your reading.</span></div><p>The study used a controlled Logitech camera and lighting setup. Ordinary webcams and Kera Dock have not been independently validated. Low hemoglobin was often overestimated. Nail polish, skin differences, white balance, and glare can further affect results.</p><p>The ensemble was frozen before the held-out evaluation. The project’s cross-validation-selected deployment baseline remains Elastic Net; this app uses the neural network as requested.</p><p><a href="https://www.nature.com/articles/s41597-024-03895-9" target="_blank" rel="noopener noreferrer">Read the original study ↗</a></p><button class="button dark-button close-dialog">Back to camera</button></dialog>
+  <dialog id="model-dialog" aria-labelledby="dialog-title"><div class="dialog-header"><h2 id="dialog-title">A note on the model.</h2><button class="icon-button close-dialog" aria-label="Close model notes">×</button></div><p>Kera estimates hemoglobin from 42 color measurements of a middle fingernail and nearby skin, normalized to a white reference in the same photo.</p><p>This app runs the trained three-network ensemble entirely on your device: 42 inputs, 16 and 8 hidden neurons, and one output. It uses the frozen PyTorch weights exported from this project. Hemoglobin estimation stays on your device. If you choose the separate visual-observations feature, Kera sends the photos you preview to OpenAI only after your permission. Kera does not save those photos or observations. OpenAI’s data policies apply.</p><div class="model-stat"><strong>15.96 g/L</strong><span>Mean absolute error on the study’s 50 held-out patients. This is an aggregate study result, not a margin of error for your reading.</span></div><p>The study used a controlled Logitech camera and lighting setup. Ordinary webcams and Kera Dock have not been independently validated. Low hemoglobin was often overestimated. Nail polish, skin differences, white balance, and glare can further affect results.</p><p>The ensemble was frozen before the held-out evaluation. The project’s cross-validation-selected deployment baseline remains Elastic Net; this app uses the neural network as requested.</p><p><a href="https://www.nature.com/articles/s41597-024-03895-9" target="_blank" rel="noopener noreferrer">Read the original study ↗</a></p><button class="button dark-button close-dialog">Back to camera</button></dialog>
+  <dialog id="vision-dialog" aria-labelledby="vision-dialog-title">
+    <div class="dialog-header"><h2 id="vision-dialog-title">A second look, with permission.</h2><button id="close-vision" class="icon-button" aria-label="Close visual analysis">×</button></div>
+    <p>Send these photos to OpenAI to describe visible nail features. This experimental feature cannot diagnose a condition or confirm that a nail is healthy.</p>
+    <div id="vision-preview-area" class="vision-previews"><figure><img id="top-preview" alt="Top-view photo that will be sent for analysis"><figcaption>Your captured photo</figcaption></figure><figure><img id="side-preview" alt="Optional side-view photo that will also be sent" hidden><figcaption>Side view of the same finger, optional</figcaption><label class="text-button side-upload"><span id="side-label">Add a side view</span><input id="side-input" type="file" accept="image/jpeg,image/png,image/webp"></label><button id="remove-side" class="text-button" type="button" hidden>Remove side view</button></figure></div>
+    <p class="small-note">Keep the whole nail and fingertip visible. Include only the finger, without faces or identifying details. Shape observations may stay unclear without a side view.</p>
+    <p id="vision-connection" class="small-note" role="status">Checking the vision connection…</p>
+    <form id="vision-form"><label class="vision-consent"><input id="vision-consent" type="checkbox" required><span>I agree to send these photos to OpenAI for visual nail observations.</span></label><p class="small-note">Kera sends resized JPEG copies without original photo metadata. It does not save the photos or observations. <a href="https://platform.openai.com/docs/guides/your-data" target="_blank" rel="noopener noreferrer">OpenAI’s data policies</a> apply. Provider retention may apply.</p><button id="send-vision" class="button dark-button" type="submit" disabled>Send photos</button></form>
+  </dialog>
   <noscript><p class="noscript">JavaScript is needed for the live camera and on-device neural network. Enable JavaScript to use Kera.</p></noscript>
 </body>
 </html>
