@@ -1,0 +1,5 @@
+{
+  "evaluation_time_utc": "2026-10-17T18:00:21.174631+00:00",
+  "selected": "elastic-0.2-0.5",
+  "note": "One evaluation of four frozen model families; no subsequent tuning"
+}

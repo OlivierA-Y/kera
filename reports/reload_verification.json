@@ -1,0 +1,24 @@
+{
+  "dummy": {
+    "max_reload_difference": 0.0,
+    "device": "cpu"
+  },
+  "ridge": {
+    "max_reload_difference": 0.0,
+    "device": "cpu"
+  },
+  "elastic": {
+    "max_reload_difference": 0.0,
+    "device": "cpu"
+  },
+  "mlp": {
+    "max_reload_difference": 0.0,
+    "device": "cpu"
+  },
+  "end_to_end_training_image": {
+    "hemoglobin_g_per_l": 117.75881485654821,
+    "warnings": [],
+    "model": "elastic",
+    "status": "Experimental research estimate; not clinically validated. Kera Dock requires independent camera calibration and validation."
+  }
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "patient_id": 1,
+    "max_absolute_difference": 0.0
+  },
+  {
+    "patient_id": 2,
+    "max_absolute_difference": 0.0
+  },
+  {
+    "patient_id": 5,
+    "max_absolute_difference": 0.0
+  },
+  {
+    "patient_id": 6,
+    "max_absolute_difference": 0.0
+  },
+  {
+    "patient_id": 7,
+    "max_absolute_difference": 0.0
+  },
+  {
+    "patient_id": 8,
+    "max_absolute_difference": 0.0
+  },
+  {
+    "patient_id": 11,
+    "max_absolute_difference": 0.0
+  },
+  {
+    "patient_id": 12,
+    "max_absolute_difference": 0.0
+  },
+  {
+    "patient_id": 14,
+    "max_absolute_difference": 0.0
+  },
+  {
+    "patient_id": 15,
+    "max_absolute_difference": 0.0
+  }
+]

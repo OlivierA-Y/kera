@@ -1,0 +1,20 @@
+{
+  "artifacts/ridge.joblib": "e11157cdb08e5d81ee2f0ec260b5b2daa7f2f03d9ce5223f52c9bb29bf4cf2fb",
+  "artifacts/elastic.joblib": "b237f0b4c6970e117aa75e328f9189e60c2b2dd47fda7895edc0cf192ead2e74",
+  "artifacts/config.json": "1a3f74ebec1026a7f6634028a2228d21569a2ab266d2da509e9f08f4250b9a61",
+  "artifacts/reload_expected_ridge.npy": "677f3c21b62ac704dcf045a85f3d87395370999c514baaf206cf9a43a64cbeb7",
+  "artifacts/elastic_net.joblib": "b237f0b4c6970e117aa75e328f9189e60c2b2dd47fda7895edc0cf192ead2e74",
+  "artifacts/dummy.joblib": "e86459c1d0c243d8f6bbc2e3b320f0592e6c2c23a65635772ae296f4a395b47e",
+  "artifacts/deployment.json": "ac8f3cae325d27ac79ea81bb106820ac4669795e9d9ac8570d6c5b0602b40fd6",
+  "artifacts/kera_cpu_bundle.zip": "8abfcc9c5995686327a2611b42051594cb7dd254fbc273f8f2c5278442265dbb",
+  "artifacts/split.json": "9338eb27549156ec566ae47a7325bae1cc133706cf291d297eb45fc389bf1ec7",
+  "artifacts/cv_folds.json": "a5a111f188860af95593a4a8897871fc8e9fb973d869c7e716d43bdd9181334f",
+  "artifacts/reload_expected_dummy.npy": "0ba509cad06311feb567856735f9403a1520a0940bd087e2e8e8de71883cf7f9",
+  "artifacts/selection.json": "3c96cedfad81d84eb1275a958709c567024efd38f8a77ee449d7746788c185bb",
+  "artifacts/reload_expected_mlp.npy": "aa352a4afef94016dc8ed7f4fb99584b34613bb1fd17409674c621882f2ad51f",
+  "artifacts/reload_expected_elastic.npy": "bc6d00b10abdf9d70843619e861f6b713d5fe78ee19b4fdc7df295c977a9b7ea",
+  "artifacts/mlp.pt": "d7d8956cf1386fcb983c66bb3cdfe14e3db24c5130a40030806df586fff6e176",
+  "artifacts/metadata.json": "ceb64c6be9d77eeba3e6fc1bcbab482948f9e257c095b1d8be3ab0eac0144850",
+  "artifacts/test_access.json": "588a9e4d5076a60109aec69480a16cfce64d889ad897b6eaa6ef09d85df91fb4",
+  "artifacts/features.csv": "72e1d749eb2c60d1d6b30cb63482c0add0fc2f1c6ee6a0d170b191ab55d0942d"
+}

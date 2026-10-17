@@ -1,0 +1,23 @@
+.venv/
+data/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.mplconfig/
+.pitch-build/
+.chart-data-*/
+.taste-skill/
+node_modules/
+.sites-runtime/
+.sites-checkout*/
+.DS_Store
+reports/**/*.png
+reports/**/*.jpg
+reports/**/*.jpeg
+reports/**/*.webp
+.tools/
+.agents/
+.aws/
+.codex/
+web/.openai/
+references/Usage Notes.ipynb

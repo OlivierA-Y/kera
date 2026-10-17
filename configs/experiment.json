@@ -1,0 +1,20 @@
+{
+  "split_seed": 20261017,
+  "cv_seed": 42,
+  "seeds": [11, 29, 47],
+  "folds": 5,
+  "test_fraction": 0.2,
+  "selection_metric": "pooled OOF RMSE; MAE and fold variability also reported",
+  "elastic_alphas": [0.02, 0.2, 2.0, 20.0],
+  "elastic_l1_ratios": [0.01, 0.1, 0.5, 0.9, 0.99],
+  "ridge_alphas": [0.1, 1.0, 10.0, 100.0, 1000.0],
+  "mlps": [
+    {"widths": [32,16], "dropout": 0.0, "lr": 0.001, "weight_decay": 0.01, "loss": "huber"},
+    {"widths": [16,8], "dropout": 0.1, "lr": 0.001, "weight_decay": 0.1, "loss": "huber"},
+    {"widths": [32,16], "dropout": 0.1, "lr": 0.001, "weight_decay": 0.1, "loss": "mse"}
+  ],
+  "max_epochs": 200,
+  "patience": 25,
+  "batch_size": 16,
+  "low_hb_threshold_g_per_l": 120
+}

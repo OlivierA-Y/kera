@@ -1,0 +1,7 @@
+{
+  "hemoglobin_g_per_l": 117.75881485654821,
+  "warnings": [],
+  "model": "elastic",
+  "status": "Experimental research estimate; not clinically validated. Kera Dock requires independent camera calibration and validation.",
+  "training_libraries_loaded": []
+}
