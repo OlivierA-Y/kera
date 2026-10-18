@@ -33,3 +33,5 @@ Latest Individual/reference update: preserve Individual on hosted entry. `/?indi
 
 
 Latest photo-delete presentation: use a monochrome trash-can icon button for the selected session photo, with the accessible name Delete current photo and a 44px minimum touch target. The icon and selected-photo label live in the base HTML after the thumbnail strip, so they do not depend on a presentation script to replace a plain text fallback. Clicking must confirm the selected Photo N and explain session removal versus preserved saved profile history. Cancel preserves selection and all photos; confirming deletes only the selected session photo. Keep this behavior in capture and analysis-result views for every audience.
+
+Latest Hb color instruction: Low reference labels are red, Within range labels green, and High labels amber, with pale matching surfaces and readable contrast in live results, history, saved details and comparisons. Reference needed remains neutral gray. This is an explicit exception to the otherwise monochrome interface. Keep the text labels and experimental-result limits; color must not be the sole indication or change any reference calculation.

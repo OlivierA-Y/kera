@@ -84,7 +84,11 @@ body.has-account .record-save { max-width: none; margin: 24px 0 0; padding: 14px
 body.has-account .record-save .button { padding: 8px 12px; min-height: 40px; border: 1px solid #d4d4d4; }
 /* Context belongs to the result; the explanation is progressive disclosure. */
 .hb-personal-context { padding: 0; background: transparent; border-radius: 0; margin: 18px 0 24px; }
-.hb-reference .hb-range-status { margin: 0 0 5px; font-size: 19px; font-weight: 550; line-height: 1.4; }
+.hb-reference[data-range="below"], .history-badge[data-range="below"] { --hb-status-ink: #b42318; --hb-status-surface: #fef3f2; }
+.hb-reference[data-range="within"], .history-badge[data-range="within"] { --hb-status-ink: #166534; --hb-status-surface: #ecfdf3; }
+.hb-reference[data-range="above"], .history-badge[data-range="above"] { --hb-status-ink: #854d0e; --hb-status-surface: #fef3c7; }
+.hb-reference .hb-range-status { display: inline-block; margin: 0 0 5px; padding: 8px 12px; border-radius: 8px; color: var(--hb-status-ink, #525252); background: var(--hb-status-surface, #f1f1f1); font-size: 19px; font-weight: 550; line-height: 1.4; }
+.history-badge[data-range] { color: var(--hb-status-ink, #525252); background: var(--hb-status-surface, #f1f1f1); }
 .hb-reference[data-range="below"] .hb-range-status::before, .hb-reference[data-range="above"] .hb-range-status::before { content: '⚠ '; }
 .hb-reference .hb-range-detail { font-size: 13px; line-height: 1.5; color: #5a5d59; margin: 6px 0; }
 .hb-reference .hb-range-caution { font-size: 13px; line-height: 1.5; margin: 10px 0; color: #4b4e4b; }

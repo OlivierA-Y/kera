@@ -109,3 +109,5 @@ Hosted Individual and reference clarity: retain the monochrome Outfit world and 
 
 
 Photo deletion clarity: replace the visible text-only deletion action with a 44px square neutral trash-can button beside the selected-picture label beneath the photo strip. Preserve a descriptive accessible name, visible keyboard focus, hover/disabled states and a confirmation naming the selected Photo N. The base HTML includes the icon/action group; the presentation script does not need to run to make the affordance recognizable. Cancel retains all photos and selection; confirmation removes only the selected session photo while retaining saved profile history.
+
+Hb semantic color exception: Sadman requested color for low, normal-range and high Hb results. Use dark red on pale red for Low, dark green on pale green for Within range, and dark amber on pale amber for High. Apply the same semantic tokens to result labels and history badges, leaving Reference needed gray and the rest of the interface monochrome. Preserve text and warning symbols alongside color, adequate contrast, and the distinction between reference comparison and a confirmed health assessment.
