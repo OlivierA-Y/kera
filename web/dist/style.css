@@ -49,3 +49,4 @@
 .region-help-footer{padding:18px 28px 24px;flex-shrink:0}
 .region-help-footer .button{width:100%;min-height:52px;font-size:18px}
 @media(max-width:480px){.region-help-header{padding:18px 20px 14px}.region-help-header h2{font-size:25px}.region-help-body{padding:0 20px}.region-help-footer{padding:16px 20px 20px}.region-help-choices label{min-width:0;flex-basis:100%}}
+.visual-finding .finding-guidance{margin-top:12px;font-size:15px;line-height:1.5;color:var(--ink)}

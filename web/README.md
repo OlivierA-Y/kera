@@ -1,6 +1,6 @@
 # Kera Camera
 
-A webcam app using the project's **actual trained three-seed MLP ensemble** for on-device hemoglobin estimation, plus optional OpenRouter vision observations of nail morphology. The numeric estimate stays in the browser. Visual observations send resized photos through OpenRouter to its selected model provider only after explicit consent.
+A webcam app using the project's **actual trained three-seed MLP ensemble** for on-device hemoglobin estimation, plus optional OpenRouter skin and nail pattern reviews. The numeric estimate stays in the browser. Visual observations send resized photos through OpenRouter to its selected model provider only after explicit consent.
 
 ## Run locally
 
@@ -20,11 +20,11 @@ The camera stops when you capture, stop the feed, leave the page, or replace it 
 
 ## Optional visual observations
 
-After capture or upload, choose **Look at visible features**. Preview the top photo, optionally add a side view of the same finger, and check the consent box before sending. No region annotations or white reference are required for this separate flow. It describes surface pits, lifting, splitting/crumbling, nail-fold swelling, spoon-like shape and clubbing-like shape, using **visible**, **not observed**, or **unclear**. Without a side view, shape findings are always unclear.
+After capture or upload, choose **Review skin & nail**. Preview the top photo, optionally add another angle of the same area, and check the consent box before sending. No region annotations or white reference are required for this separate flow. It replaces the previous six morphology categories with four review categories: **skin cancer warning signs**, **fungal infection-like changes**, **eczema-like changes** and **psoriasis-like changes**. Results show **Changes to review** or **Cannot assess from photo**, never a positive or negative diagnosis. A clear close-up of affected skin or nail is required; an additional angle is optional. A generic nail photo cannot screen the rest of a person's skin.
 
 The local Node 22+ server uses the OpenRouter Chat Completions API with a strict structured-output schema. Default model: `google/gemini-2.5-flash`; configurable with `OPENROUTER_VISION_MODEL`. To enable it, copy `web/.env.example` to `web/.env`, set `OPENROUTER_API_KEY`, then restart the server. No npm dependencies are needed. Keep the key out of `dist/`; `.env` is ignored by Git. Without a key, the app explains that visual analysis is unavailable and the local hemoglobin estimate still works.
 
-This is an experimental morphology description, not disease detection or diagnosis. It does not infer anemia, nutrient deficiency, fungal disease, psoriasis, cancer, blood oxygen, or treatment. A feature not observed is not ruled out. There are no validated confidence percentages or clinical accuracy claims. Schema and prose checks reduce unwanted output but cannot establish medical correctness. A clinician must assess changes or concerns.
+This is an experimental visual review, not a clinically validated detector or diagnostic device. No accuracy, sensitivity, specificity or confidence estimate is available for these four conditions. It cannot confirm or exclude skin cancer, fungal infection, eczema or psoriasis. Many conditions, injuries and benign changes look similar. Skin-cancer warning features receive a prompt in-person review recommendation; all results explain that a photo cannot rule out cancer and advise assessment of new, changing, bleeding or non-healing changes. Clinical follow-up is fixed app copy, separate from the model's descriptive evidence. The model must not prescribe treatment, make definitive diagnoses or reassure a user that a lesion is benign. A clinician may require examination, dermoscopy, a sample or biopsy. See [AAD nail melanoma guidance](https://www.aad.org/public/diseases/skin-cancer/types/common/melanoma/nail-melanoma) and [AAD nail fungus diagnosis](https://www.aad.org/public/diseases/a-z/nail-fungus-treatment).
 
 Privacy: the browser makes resized JPEG copies up to 1600 px on the longest edge, removing original file metadata. Kera does not log or save photos or observations. The server holds them in memory during a request, sends them to the fixed OpenRouter endpoint, which routes them to the selected model provider, and returns structured findings. Requests require support for the schema parameters and by default exclude providers flagged as collecting data (`provider.require_parameters: true`, `data_collection: "deny"`). This routing preference is not a blanket zero-retention guarantee. OpenRouter and the selected provider’s policies still apply. See [OpenRouter privacy policy](https://openrouter.ai/privacy). Canceling or replacing a photo aborts the request but cannot recall photos already sent.
 
@@ -55,7 +55,7 @@ The parity fixtures use ten training patients, with no labels or patient identif
 npm --prefix web test
 ```
 
-The 17 vision unit/integration tests use a synthetic gray JPEG and an injected provider; they never contact OpenRouter. They cover consent, input validation, origins, credential isolation, structured findings, refusal, errors, missing side views, unusable images, request limits and timeout handling. Browser vision tests additionally exercise consent, optional side photos, results, failure, cancellation, replacing photos during analysis and responsive layouts. They use a local mock provider, not a simulated production result.
+The 18 vision unit/integration tests use a synthetic gray JPEG and an injected provider; they never contact OpenRouter. They cover consent, input validation, origins, credential isolation, structured findings, refusal, errors, unsupplied photo views, unusable images, request limits and timeout handling. Browser vision tests additionally exercise consent, optional side photos, results, failure, cancellation, replacing photos during analysis and responsive layouts. They use a local mock provider, not a simulated production result.
 
 
 - Eight Node tests cover CPU parity, feature ordering/normalization, NumPy-style percentile interpolation, central crop geometry, input validation, overlap/reference rejection, quality warnings and schema checks.
@@ -63,7 +63,7 @@ The 17 vision unit/integration tests use a synthetic gray JPEG and an injected p
 - Physical webcam hardware was not verified. Chrome's test media device exercises the real getUserMedia/capture code path.
 - Responsive screenshots at 1440, 768 and 390 pixels and browser test reports are local in ignored `reports/`. These include a public-study image used for local testing and are excluded from the hosted source and deployment.
 
-`tests/browser.mjs` and `tests/vision-browser.mjs` use the consulted taste skill's zero-dependency Chrome helper. Its import path is specific to this development environment and it needs an installed Chrome plus the original dataset image 1 for the upload smoke test. The production app has no dependency on that helper, Python, PyTorch, or the dataset. The 25 inference/API tests need only Node >=22 and the checked-in fixtures. The vision browser test uses its synthetic fixture and never needs the dataset. Run `node web/tests/vision-browser.mjs` from the repository root.
+`tests/browser.mjs` and `tests/vision-browser.mjs` use the consulted taste skill's zero-dependency Chrome helper. Its import path is specific to this development environment and it needs an installed Chrome plus the original dataset image 1 for the upload smoke test. The production app has no dependency on that helper, Python, PyTorch, or the dataset. The 26 inference/API tests need only Node >=22 and the checked-in fixtures. The vision browser test uses its synthetic fixture and never needs the dataset. Run `node web/tests/vision-browser.mjs` from the repository root.
 
 ## Design
 

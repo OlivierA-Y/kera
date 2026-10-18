@@ -9,7 +9,7 @@ import { FINDINGS, buildRequest, validateObservation, parseProviderResponse, ana
 const image='data:image/jpeg;base64,'+readFileSync(new URL('./fixtures/synthetic.jpg',import.meta.url)).toString('base64');
 const photos=[{view:'top',data_url:image}];
 const body={consent:true,photos};
-function observation(){return{image_quality:{assessment:'adequate',reason:'The nail surface is in focus.'},observations:Object.fromEntries(Object.keys(FINDINGS).map(key=>[key,{status:'not_observed',evidence:'No clear surface change is visible in the top photo.',view:'top'}]))};}
+function observation(){return{image_quality:{assessment:'adequate',reason:'The nail surface is in focus.'},observations:Object.fromEntries(Object.keys(FINDINGS).map(key=>[key,{status:'unclear',evidence:'No clear surface change is visible in the top photo.',view:'top'}]))};}
 async function fixture(options,fn){
  const server=createApp(options);server.listen(0,'127.0.0.1');await once(server,'listening');const base=`http://127.0.0.1:${server.address().port}`;
  try{await fn(base);}finally{await new Promise(resolve=>server.close(resolve));}
@@ -26,9 +26,9 @@ test('Consent, image payload, required top view and duplicate views are validate
  assert.throws(()=>validateInput({consent:true,photos:[{view:'top',data_url:'data:image/jpeg;base64,YWJjZA=='}]}),/JPEG/);
  assert.equal(validateInput(body).length,1);
 });
-test('No side view overrides even confidently visible shape claims to unclear',()=>{
- const value=observation();value.observations.clubbing={status:'visible',evidence:'The tip looks enlarged.',view:'side'};
- const checked=validateObservation(value,false);assert.equal(checked.observations.clubbing.status,'unclear');assert.equal(checked.observations.spooning.status,'unclear');
+test('Evidence citing an unsupplied angle becomes unclear',()=>{
+ const value=observation();value.observations.eczema={status:'possible_features',evidence:'A cracked patch is visible.',view:'side'};
+ const checked=validateObservation(value,false);assert.equal(checked.observations.eczema.status,'unclear');assert.equal(checked.observations.skin_cancer.status,'unclear');
 });
 test('Unusable images yield only unclear findings and reject extra diagnosis fields',()=>{
  const value=observation();value.image_quality.assessment='unusable';
@@ -36,8 +36,8 @@ test('Unusable images yield only unclear findings and reject extra diagnosis fie
  const bad=observation();bad.diagnosis='anything';assert.throws(()=>validateObservation(bad,true),/incomplete/);
 });
 test('Diagnostic and unvalidated confidence prose fail closed',()=>{
- for(const evidence of ['You have psoriasis.','The nail is healthy.','Confidence 95%.','Use an antifungal medication.']){
-  const value=observation();value.observations.pitting.evidence=evidence;assert.throws(()=>validateObservation(value,true),/morphology-only/);
+ for(const evidence of ['You have psoriasis.','You have eczema.','This is skin cancer.','The nail is healthy.','Confidence 95%.','Use an antifungal medication.']){
+  const value=observation();value.observations.eczema.evidence=evidence;assert.throws(()=>validateObservation(value,true),/descriptive observations/);
  }
 });
 test('Provider refusal, incomplete or malformed output returns no observations',()=>{
@@ -51,7 +51,7 @@ test('Provider call uses fixed HTTPS endpoint, server-only bearer and parsed out
   assert.equal(url,'https://openrouter.ai/api/v1/chat/completions');assert.equal(options.headers.Authorization,'Bearer test-not-a-secret');payload=JSON.parse(options.body);
   return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{role:'assistant',content:JSON.stringify(observation())}}]}),{status:200});
  }});
- assert.equal(payload.provider.data_collection,'deny');assert.equal(payload.model,'google/gemini-2.5-flash');assert.equal(result.observations.clubbing.status,'unclear');
+ assert.equal(payload.provider.data_collection,'deny');assert.equal(payload.model,'google/gemini-2.5-flash');assert.equal(result.observations.skin_cancer.status,'unclear');
 });
 test('Provider errors never leak arbitrary response details',async()=>{
  for(const status of [401,402,403,429,500])await assert.rejects(analyzePhotos(photos,{apiKey:'test',model:'google/gemini-2.5-flash',fetchImpl:async()=>new Response('SECRET PROVIDER DETAIL',{status})}),e=>!e.message.includes('SECRET'));
@@ -77,13 +77,13 @@ test('Missing consent, hostile origin, method, Host and media type never call pr
 test('Successful API returns structured observations without photos or credentials',async()=>{
  await fixture({apiKey:'test-hidden-key',provider:async()=>observation()},async base=>{
   const response=await post(base);assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');
-  const result=await response.json();assert.equal(result.provider,'OpenRouter');assert.equal(result.observations.clubbing.status,'unclear');assert.ok(result.limitation.includes('not a diagnosis'));
+  const result=await response.json();assert.equal(result.provider,'OpenRouter');assert.equal(result.observations.skin_cancer.status,'unclear');assert.ok(result.limitation.includes('not a diagnosis'));
   const serialized=JSON.stringify(result);assert.ok(!serialized.includes('test-hidden-key'));assert.ok(!serialized.includes('base64'));
  });
 });
 test('Side-view evidence is retained only when a side view was actually supplied',async()=>{
- await fixture({apiKey:'test',provider:async()=>{const value=observation();value.observations.spooning={status:'visible',evidence:'The nail dips inward in the side photo.',view:'side'};return value;}},async base=>{
-  const response=await post(base,{consent:true,photos:[...photos,{view:'side',data_url:image}]});assert.equal(response.status,200);assert.equal((await response.json()).observations.spooning.status,'visible');
+ await fixture({apiKey:'test',provider:async()=>{const value=observation();value.observations.psoriasis={status:'possible_features',evidence:'A sharply bounded scaly patch is visible in the additional photo.',view:'side'};return value;}},async base=>{
+  const response=await post(base,{consent:true,photos:[...photos,{view:'side',data_url:image}]});assert.equal(response.status,200);assert.equal((await response.json()).observations.psoriasis.status,'possible_features');
  });
 });
 test('Local rate limit caps paid requests',async()=>{
@@ -118,4 +118,13 @@ test('Privacy and unsupported endpoint errors are actionable without exposing pr
  for(const [status,message,code] of [[404,'No endpoints found matching your data policy (Free model training). SECRET','provider_privacy'],[404,'No endpoints found supporting the requested parameters SECRET','provider_configuration'],[400,'Unsupported schema SECRET','provider_configuration']]){
   await assert.rejects(analyzePhotos(photos,{apiKey:'test',model:'test',fetchImpl:async()=>new Response(JSON.stringify({error:{message}}),{status})}),e=>e.status===503&&e.code===code&&!e.message.includes('SECRET'));
  }
+});
+
+test('Review schema has only the four requested categories and never a negative disease verdict',()=>{
+ assert.deepEqual(Object.keys(FINDINGS),['skin_cancer','fungal_infection','eczema','psoriasis']);
+ for(const status of ['not_observed','negative','confirmed','detected','low_risk']){
+  const value=observation();value.observations.skin_cancer.status=status;assert.throws(()=>validateObservation(value,true),/incomplete/);
+ }
+ const value=observation();value.observations.skin_cancer={status:'possible_features',evidence:'A dark band has uneven edges in the main photo.',view:'top'};
+ assert.equal(validateObservation(value,false).observations.skin_cancer.status,'possible_features');
 });
