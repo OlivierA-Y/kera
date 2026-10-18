@@ -421,10 +421,6 @@ button, input, select, textarea { font-family: inherit; }
 .scan-history-list img { width: 100%; height: 74px; object-fit: contain; border-radius: 6px; background: #e9e9e9; }
 .scan-history-list strong { font-size: 15px; font-weight: 600; }
 .scan-history-list span { font-size: 13px; color: var(--muted); }
-.scan-history-dialog { max-width: 860px; border-radius: 16px; background: #fff; }
-#scan-history-canvas { display: block; width: 100%; height: auto; max-height: 52svh; object-fit: contain; background: #ededed; border-radius: 12px; margin-bottom: 20px; }
-#scan-history-detail p { margin-bottom: 12px; }
-@media (max-width: 740px) { .scan-history-dialog { padding: 24px 18px; } }
 
 .region-editor-help { margin: -6px 0 22px; color: var(--muted); font-size: 15px; line-height: 1.55; }
 
@@ -436,9 +432,6 @@ button, input, select, textarea { font-family: inherit; }
 .history-navigation { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 18px; }
 .history-navigation .button { min-height: 44px; padding: 10px 14px; font-size: 14px; }
 #saved-photo-position { white-space: nowrap; font-size: 14px; color: var(--muted); }
-#scan-history-review:empty { display: none; }
-.scan-history-dialog .care-columns { display: block; }
-.scan-history-dialog .care-overview { padding: 20px; }
 @media (max-width: 374px) { .history-navigation .button { padding-inline: 8px; font-size: 13px; } }
 
 .history-navigation { position: sticky; top: 0; z-index: 1; background: #fff; padding-block: 10px; }

@@ -1,129 +1,65 @@
-import { createCareReview } from './care-review.js';
-/** Read-only session previews. Full-resolution pixels still go only to local inference. */
-export function createScanHistory({ root, list, dialog, canvas, title, detail, close, previous, next, position, reviewRoot }) {
-  const entries = new Map();
-  const doc = root.ownerDocument;
-  let generation = 0, selected = null, drawVersion = 0;
-  const reviewView = createCareReview(reviewRoot, { handoffId: 'history-handoff-note' });
-  function move(offset) {
-    const values=[...entries.values()], index=values.findIndex(entry=>entry.scan.id===selected);
-    if(values[index+offset])void open(values[index+offset]);
+/** In-memory, lossless originals for editing; small JPEGs are thumbnails only. */
+export function createScanHistory({root,list,previous,next,position,onSelect,onError}) {
+  const entries=new Map(),doc=root.ownerDocument;
+  let mode='skin',selected=null,busy=false,generation=0,request=0,bytes=0;
+  const MAX_BYTES=192*1024*1024;
+  const visible=()=>[...entries.values()].filter(e=>(e.scan.type||'hb')===mode);
+  const name=e=>e.scan.type==='skin'?`Skin & nail photo ${e.scan.number}`:`Hb photo ${e.scan.number}`;
+  async function select(entry){
+    if(busy||entry.scan.state==='pending')return;
+    const version=++request,current=generation;
+    try{
+      const blob=await entry.original;
+      if(!blob)throw Error('This photo could not be retained for editing. Take or upload it again.');
+      const image=await createImageBitmap(blob);
+      try{
+        if(version!==request||current!==generation)return;
+        await onSelect(entry,image);
+        if(version===request){selected=entry.scan.id;update();}
+      }finally{image.close();}
+    }catch(error){if(version===request)onError(error.message||'This photo could not be opened.');}
   }
+  function move(offset){const items=visible(),i=items.findIndex(e=>e.scan.id===selected);if(items[i+offset])void select(items[i+offset]);}
   previous.addEventListener('click',()=>move(-1));next.addEventListener('click',()=>move(1));
-  function navigation(){
-    const values=[...entries.keys()], index=values.indexOf(selected);
-    previous.disabled=index<=0;next.disabled=index<0||index>=values.length-1;
-    position.textContent=`${index+1} of ${values.length}`;
-    for(const entry of entries.values())entry.button.setAttribute('aria-pressed',String(entry.scan.id===selected));
-  }
-  function name(entry){return entry.scan.type==='skin'?`Skin & nail photo ${entry.scan.number}`:`Hb scan ${entry.scan.number}`;}
-  close.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', () => {
-    selected = null; drawVersion++;reviewView.clear();navigation();
-    canvas.width = canvas.height = 1;
-  });
-  function describe(entry) {
-    const scan = entry.scan;
-    if(scan.type==='skin')return scan.review?'Saved AI review of this photo and any additional angle supplied with it.':'Captured photo. No saved AI review for this image.';
-    return scan.state === 'complete'
-      ? `Experimental estimate: ${scan.result.hemoglobin_g_per_l.toFixed(1)} g/L. Included in the session average.`
-      : scan.state === 'failed' ? `Not included: ${scan.message}` : 'Processing this photo…';
-  }
-  function updateDetail(entry) {
-    detail.replaceChildren();
-    const status = doc.createElement('p'); status.textContent = describe(entry); detail.append(status);
-    if (entry.previewError) {
-      const note = doc.createElement('p'); note.textContent = entry.previewError; detail.append(note);
-    }
-    for (const warning of entry.scan.result?.warnings || []) {
-      const note = doc.createElement('p'); note.textContent = warning; detail.append(note);
+  function update(){
+    const items=visible(),i=items.findIndex(e=>e.scan.id===selected);
+    root.hidden=!items.length;
+    previous.disabled=busy||i<=0;next.disabled=busy||i<0||i>=items.length-1;
+    position.textContent=i>=0?`${i+1} of ${items.length}`:`${items.length} photos`;
+    for(const entry of entries.values()){
+      entry.item.hidden=(entry.scan.type||'hb')!==mode;
+      entry.label.textContent=name(entry);
+      entry.status.textContent=entry.error?'Photo unavailable':!entry.ready?'Saving photo…':entry.scan.type==='skin'?(entry.scan.review?'Review ready':'Captured'):
+        ({complete:'Included',failed:'Not included',pending:'Processing',editing:'Boxes changed · recalculate',draft:'Not added yet'}[entry.scan.state]||'Captured');
+      entry.button.disabled=busy||!entry.ready||Boolean(entry.error)||entry.scan.state==='pending';
+      entry.button.setAttribute('aria-label',`Select ${name(entry)}: ${entry.status.textContent}`);
+      entry.button.setAttribute('aria-pressed',String(selected===entry.scan.id));
     }
   }
-  async function open(entry) {
-    selected = entry.scan.id;
-    const version = ++drawVersion;
-    title.textContent = name(entry);navigation();reviewView.clear();
-    if(entry.scan.review)reviewView.show(entry.scan.review);
-    updateDetail(entry);
-    canvas.hidden = true;
-    canvas.setAttribute('aria-label',entry.scan.type==='skin'?'Saved skin or nail photo':'Saved Hb photo with marked middle nail, nearby skin and white-reference regions');
-    dialog.scrollTop=0;
-    if (!dialog.open) dialog.showModal();
-    if (!entry.url) return;
-    try {
-      const image = new Image(); image.src = entry.url; await image.decode();
-      if (version !== drawVersion || selected !== entry.scan.id || !dialog.open) return;
-      canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
-      const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0);canvas.hidden=false;
-      const scaleX = canvas.width / entry.width, scaleY = canvas.height / entry.height;
-      const labels = { nail: 'Middle nail', skin: 'Nearby skin', white: 'White reference' };
-      ctx.lineWidth = 2; ctx.font = '14px sans-serif';
-      for (const [kind, [top, left, bottom, right]] of Object.entries(entry.boxes)) {
-        const x = left * scaleX, y = top * scaleY, w = (right-left)*scaleX, h = (bottom-top)*scaleY;
-        ctx.strokeStyle = '#191919'; ctx.lineWidth = 4; ctx.strokeRect(x,y,w,h);
-        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.strokeRect(x,y,w,h);
-        const label = labels[kind], labelWidth = ctx.measureText(label).width + 12;
-        const labelX = Math.max(0, Math.min(x, canvas.width-labelWidth));
-        const labelY = Math.max(0, Math.min(y-22, canvas.height-22));
-        ctx.fillStyle = '#191919'; ctx.fillRect(labelX,labelY,labelWidth,22);
-        ctx.fillStyle = '#ffffff'; ctx.fillText(label,labelX+6,labelY+16);
-      }
-    } catch {
-      if (version === drawVersion) {
-        canvas.hidden = true;
-        const error = doc.createElement('p'); error.textContent = 'This preview could not be opened. The saved reading is unchanged.';
-        detail.append(error);
-      }
-    }
-  }
-  function update() {
-    root.hidden = entries.size === 0;
-    for (const entry of entries.values()) {
-      entry.label.textContent = name(entry);
-      entry.status.textContent = entry.scan.type==='skin'?(entry.scan.review?'Review ready':'Captured'):entry.scan.state === 'complete' ? 'Included' : entry.scan.state === 'failed' ? 'Not included' : 'Processing';
-      entry.button.setAttribute('aria-label', `View ${name(entry)}: ${entry.status.textContent}`);
-      if (selected === entry.scan.id) updateDetail(entry);
-    }
-  }
-  function record(scan, source, boxes) {
-    const item = doc.createElement('li'), button = doc.createElement('button');
-    button.type = 'button'; button.setAttribute('aria-haspopup', 'dialog');
-    const img = doc.createElement('img'); img.alt = ''; img.hidden = true;
-    const label = doc.createElement('strong'), status = doc.createElement('span');
-    button.append(img,label,status); item.append(button); list.append(item);
-    const entry = { scan, boxes: structuredClone(boxes), width: source.width, height: source.height, button, label, status, img, url: null, previewError: null };
-    entries.set(scan.id, entry);navigation();button.addEventListener('click', () => open(entry)); update();
-    // Bound retained image size. Never retain another full-resolution ImageData per scan.
-    const preview = doc.createElement('canvas');
-    const scale = Math.min(1, 960 / Math.max(source.width, source.height));
-    preview.width = Math.max(1, Math.round(source.width*scale));
-    preview.height = Math.max(1, Math.round(source.height*scale));
-    preview.getContext('2d').drawImage(source,0,0,preview.width,preview.height);
-    const version = generation;
-    preview.toBlob(blob => {
-      preview.width = preview.height = 1;
-      if (version !== generation || !entries.has(scan.id)) return;
-      if (blob && blob.size <= 512*1024) {
-        entry.url = URL.createObjectURL(blob); img.src = entry.url; img.hidden = false;
-      } else entry.previewError = 'A photo preview is unavailable for this scan. Its processing status and reading are still available.';
-      if (selected === scan.id) void open(entry);
-    }, 'image/jpeg', .75);
-  }
-  function attachReview(id,value) {
-    const entry=entries.get(id);if(!entry)return;entry.scan.review=structuredClone(value);update();
-    if(selected===id)reviewView.show(entry.scan.review);
-  }
-  function clearType(type){
-    if(dialog.open)dialog.close();
-    for(const [id,entry]of entries)if((entry.scan.type||'hb')===type){if(entry.url)URL.revokeObjectURL(entry.url);entry.button.parentElement.remove();entries.delete(id);}
+  function record(scan,source,boxes={}){
+    if(entries.has(scan.id))return;
+    const item=doc.createElement('li'),button=doc.createElement('button'),img=doc.createElement('img'),label=doc.createElement('strong'),status=doc.createElement('span');
+    button.type='button';img.alt='';img.hidden=true;button.append(img,label,status);item.append(button);list.append(item);
+    const entry={scan,boxes:structuredClone(boxes),width:source.width,height:source.height,item,button,label,status,url:null,ready:false,error:null};
+    entries.set(scan.id,entry);selected=scan.id;button.addEventListener('click',()=>void select(entry));
+    const full=doc.createElement('canvas');full.width=source.width;full.height=source.height;full.getContext('2d').drawImage(source,0,0);
+    const version=generation;
+    entry.original=new Promise(resolve=>{
+      full.toBlob(blob=>{
+        full.width=full.height=1;
+        if(version!==generation||!entries.has(scan.id)){resolve(null);return;}
+        if(!blob||bytes+blob.size>MAX_BYTES){entry.error='Session photo memory is full or this photo could not be saved. Reload to clear the session before adding more photos.';resolve(null);}
+        else{entry.blob=blob;bytes+=blob.size;entry.ready=true;resolve(blob);}
+        update();if(entry.error)onError(entry.error);
+      },'image/png');
+    });
+    const thumb=doc.createElement('canvas'),scale=Math.min(1,240/Math.max(source.width,source.height));
+    thumb.width=Math.max(1,Math.round(source.width*scale));thumb.height=Math.max(1,Math.round(source.height*scale));thumb.getContext('2d').drawImage(source,0,0,thumb.width,thumb.height);
+    thumb.toBlob(blob=>{thumb.width=thumb.height=1;if(version!==generation||!entries.has(scan.id)||!blob)return;entry.url=URL.createObjectURL(blob);img.src=entry.url;img.hidden=false;},'image/jpeg',.75);
     update();
   }
-  function clear() {
-    generation++; drawVersion++; selected = null;
-    if (dialog.open) dialog.close();
-    for (const entry of entries.values()) if (entry.url) URL.revokeObjectURL(entry.url);
-    entries.clear(); list.replaceChildren(); root.hidden = true;
-    canvas.width = canvas.height = 1; detail.replaceChildren();reviewView.clear();
-  }
-  return { record, update, clear, clearType, attachReview };
+  function remove(entry){if(entry.url)URL.revokeObjectURL(entry.url);bytes-=entry.blob?.size||0;entry.item.remove();entries.delete(entry.scan.id);}
+  function clearType(type){request++;for(const entry of entries.values())if((entry.scan.type||'hb')===type)remove(entry);if(!entries.has(selected))selected=null;update();}
+  function clear(){generation++;request++;for(const entry of entries.values())remove(entry);selected=null;update();}
+  return {record,update,clear,clearType,get:id=>entries.get(id),attachReview(id,value){const e=entries.get(id);if(e)e.scan.review=structuredClone(value);update();},setMode(value){if(mode!==value)request++;mode=value;update();},setBusy(value){busy=value;update();},selectCurrent(id){selected=id;update();},saveBoxes(id,boxes){const e=entries.get(id);if(e)e.boxes=structuredClone(boxes);}};
 }

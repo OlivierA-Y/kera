@@ -142,5 +142,9 @@ export function initializeVisualAnalysis({getPhoto,onResult=()=>{},onAdditionalP
   });
   $('cancel-vision').addEventListener('click',()=>controller?.abort('user'));
   window.addEventListener('pagehide',()=>reset(false));
-  return{reset,deactivate(){reset(photoReady);}};
+  function restoreReview(value){
+    if(!careReview.show(value))return;
+    hasReview=true;$('vision-results').hidden=false;$('reopen-review').hidden=false;$('open-vision').textContent='Review again';
+  }
+  return{reset,restoreReview,deactivate(){reset(photoReady);}};
 }
