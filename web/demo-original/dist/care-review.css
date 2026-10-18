@@ -1,0 +1,132 @@
+.care-preview { background: var(--bg); color: var(--ink); }
+.care-header { max-width: 1440px; margin: auto; padding: 26px 40px; display: flex; align-items: center; gap: 32px; }
+.care-header > span { font-size: 16px; }
+.care-header > a:last-child { margin-left: auto; font-size: 15px; line-height: 1.5; padding-block: 12px; }
+.care-main { max-width: 1440px; margin: auto; padding: 24px 40px 48px; }
+.care-title h1 { margin: 0 0 12px; font-size: 36px; line-height: 1.15; letter-spacing: -.03em; text-wrap: balance; }
+.care-title p { margin: 0 0 28px; font-size: 18px; line-height: 1.5; }
+.care-demo-notice { background: var(--surface); padding: 20px 24px; }
+.care-demo-notice strong { font-size: 16px; }
+.care-demo-notice p { margin: 8px 0 0; max-width: 75ch; font-size: 16px; line-height: 1.5; }
+.care-example-controls { display: flex; align-items: end; gap: 24px; flex-wrap: wrap; padding-top: 28px; }
+.care-example-controls label { display: grid; gap: 10px; font-size: 15px; }
+.care-example-controls select { min-height: 48px; min-width: 220px; padding: 10px 36px 10px 12px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--muted); border-radius: 4px; }
+.care-example-controls button { min-height: 48px; }
+.care-preview select:focus-visible, .care-preview textarea:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+.care-preview-status { font-size: 14px; color: #505050; line-height: 1.5; margin: 14px 0 32px; min-height: 21px; }
+.care-columns { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 64px; align-items: start; }
+.care-columns h2 { font-size: 26px; font-weight: 500; letter-spacing: -.025em; line-height: 1.2; margin: 0 0 16px; }
+.care-columns p { font-size: 16px; line-height: 1.55; max-width: 70ch; }
+.care-finding { padding: 25px 0; border-bottom: 1px solid #d9d9d9; }
+.care-finding h3 { font-size: 18px; font-weight: 600; line-height: 1.4; margin: 0 0 8px; }
+.care-finding .care-state { margin: 0 0 12px; color: #505050; font-size: 14px; }
+.care-finding p { margin: 0 0 12px; overflow-wrap: anywhere; }
+.care-context { margin-top: 24px; }
+.care-context h4 { font-size: 16px; line-height: 1.5; margin: 0 0 8px; }
+.care-context a { display: inline-block; font-size: 15px; line-height: 1.5; padding-block: 10px; text-underline-offset: 4px; }
+.care-columns .care-caution, .care-provenance { color: #505050; font-size: 14px; line-height: 1.55; }
+.care-note { min-width: 0; }
+.care-note .care-note-warning { font-weight: 600; margin-bottom: 12px; }
+.care-note label { display: block; font-size: 15px; margin: 24px 0 10px; }
+.care-note textarea { display: block; width: 100%; min-height: 320px; max-height: 65vh; padding: 18px; resize: vertical; border: 1px solid var(--muted); border-radius: 4px; background: var(--bg); color: var(--ink); font: 16px/1.55 Arial, Helvetica, sans-serif; }
+.care-note button { margin-top: 18px; min-width: 160px; }
+.care-copy-status { min-height: 24px; }
+.care-provenance { max-width: 90ch; margin: 40px 0 0; }
+.care-message { font-size: 16px; line-height: 1.5; padding: 24px; background: var(--surface); }
+/* Live review occupies the existing reading column beside the captured photo. */
+#vision-results .care-columns { display: block; }
+#vision-results .care-note { margin-top: 36px; }
+#vision-results .care-columns h2 { margin-bottom: 16px; }
+#vision-results .care-note textarea { max-height: none; min-height: 360px; }
+#vision-results .care-provenance { overflow-wrap: anywhere; }
+/* Read in layers: a short overview, optional observations, then a note on request. */
+.care-review { --care-reading-size: 18px; }
+.care-review.care-large-text { --care-reading-size: 22px; }
+.care-review p, .care-review li, .care-review a, .care-review label,
+.care-review .care-columns p, .care-review .care-caution,
+.care-review textarea { font-size: var(--care-reading-size); line-height: 1.6; }
+.care-review p { max-width: 68ch; overflow-wrap: anywhere; }
+.care-main { max-width: 1120px; }
+.care-overview { padding: 26px; background: var(--surface); border-radius: 12px; margin-bottom: 36px; }
+.care-overview-top { display: flex; justify-content: space-between; align-items: start; gap: 18px; }
+.care-overview h2 { margin: 0; font-size: 26px; line-height: 1.2; letter-spacing: -.025em; font-weight: 500; }
+.care-overview .care-headline { font-size: 23px; font-weight: 600; line-height: 1.35; margin: 24px 0 12px; }
+.care-overview .care-summary-copy { margin: 0 0 20px; }
+.care-text-size { min-height: 48px; padding: 10px 14px; border: 1px solid var(--muted); border-radius: 6px; background: transparent; font-size: 16px; line-height: 1.4; flex-shrink: 0; }
+.care-text-size[aria-pressed=true] { color: var(--bg); background: var(--ink); }
+.care-next-step { margin-top: 26px; }
+.care-next-step h3 { font-size: 18px; line-height: 1.5; margin: 0 0 6px; }
+.care-next-step p { margin: 0; }
+.care-overview-actions { margin-top: 24px; }
+.care-overview-actions button { font-size: 18px; min-height: 54px; }
+.care-columns { display: block; }
+.care-finding { padding: 0; }
+.care-review summary { cursor: pointer; min-height: 54px; padding: 16px 4px; font-size: var(--care-reading-size); line-height: 1.5; overflow-wrap: anywhere; }
+.care-review summary:hover { text-decoration: underline; text-underline-offset: 4px; }
+.care-review summary:focus-visible, .care-review button:focus-visible,
+.care-review textarea:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+.care-finding-title { display: inline; }
+.care-finding-title > span:first-child { font-weight: 600; }
+.care-review .care-state { display: block; padding-left: 22px; margin: 4px 0 0; color: #505050; font-size: 16px; }
+.care-finding-body { padding: 6px 4px 22px; }
+.care-finding-body h3 { font-size: 17px; font-weight: 600; margin: 12px 0 8px; }
+.care-review .care-finding-body > p { margin: 0 0 18px; }
+.care-context { margin-top: 4px; }
+.care-context > summary { font-weight: 600; }
+.care-explanation { padding: 0 4px 8px; }
+.care-explanation h4 { font-size: 17px; line-height: 1.5; margin: 26px 0 8px; }
+.care-explanation p { margin: 0; }
+.care-explanation ul { padding-left: 24px; margin: 8px 0 0; }
+.care-explanation li { margin-bottom: 12px; }
+.care-context a, .care-provenance > a { display: block; padding: 14px 0; text-underline-offset: 4px; }
+.care-uncertain-group { margin-top: 22px; }
+.care-uncertain-group > summary { font-weight: 600; }
+.care-uncertain-group > p { color: #505050; margin: 0 0 12px; }
+.care-note { margin-top: 32px; border-block: 1px solid #bdbdbd; padding: 4px 0; scroll-margin-top: 20px; }
+.care-note > summary { font-weight: 600; font-size: 22px; }
+.care-note textarea, #vision-results .care-note textarea { min-height: 280px; max-height: 65vh; font-size: var(--care-reading-size); }
+.care-note > button { font-size: 18px; min-height: 54px; margin-top: 18px; }
+.care-note > p { margin-bottom: 20px; }
+.care-provenance { max-width: none; margin-top: 22px; }
+.care-provenance > summary { font-weight: 600; }
+.care-provenance p { margin: 12px 0 18px; }
+body[data-analysis=skin] .review-limitation,
+body[data-analysis=skin] .permission-note,
+body[data-analysis=skin] #vision-remote-note,
+body[data-analysis=skin] #vision-dialog .small-note,
+body[data-analysis=skin] .review-categories li { font-size: 16px; line-height: 1.6; }
+.skin-review-steps { margin: 28px 0; padding-left: 26px; }
+.skin-review-steps li { padding-left: 8px; margin-bottom: 22px; font-size: 18px; line-height: 1.5; }
+.skin-review-steps strong, .skin-review-steps span { display: block; }
+.skin-review-steps span { font-size: 16px; margin-top: 5px; color: #505050; }
+.review-categories > summary { font-size: 18px; line-height: 1.5; min-height: 52px; padding: 12px 0; cursor: pointer; }
+.review-categories > p { font-size: 16px; line-height: 1.6; }
+.review-categories > ul { list-style: none; margin: 0; padding: 0; }
+@media (max-width: 900px) {
+  .care-columns { gap: 32px; }
+  .care-header, .care-main { padding-inline: 28px; }
+}
+@media (max-width: 740px) {
+  .care-header { flex-wrap: wrap; gap: 12px 20px; padding: 22px; }
+  .care-header .brand { width: 110px; }
+  .care-header > span { display: none; }
+  .care-header > a:last-child { font-size: 14px; }
+  .care-main { padding: 20px 22px 40px; }
+  .care-title h1 { font-size: 30px; }
+  .care-title p { font-size: 16px; }
+  .care-demo-notice { padding: 18px; }
+  .care-example-controls { gap: 8px 24px; }
+  .care-example-controls label, .care-example-controls select { width: 100%; min-width: 0; }
+  .care-columns { grid-template-columns: 1fr; gap: 36px; }
+  .care-columns h2 { font-size: 25px; }
+  .care-note textarea { min-height: 400px; max-height: none; }
+  .care-note button { width: 100%; }
+  .care-provenance { margin-top: 28px; overflow-wrap: anywhere; }
+  .care-overview { padding: 22px 18px; }
+  .care-overview-top { flex-wrap: wrap; gap: 16px; }
+  .care-overview h2 { font-size: 25px; }
+  .care-overview .care-headline { font-size: 22px; }
+  .care-overview-actions button { width: 100%; padding-inline: 16px; }
+  .care-review .care-state { font-size: 16px; }
+  .care-note textarea { min-height: 280px; }
+}

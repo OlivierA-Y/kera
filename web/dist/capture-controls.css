@@ -1,0 +1,70 @@
+/* Shared file-picker and photo-removal controls; no capture behavior changes. */
+.camera-toolbar #upload-button.file-picker-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid #b8b8b8;
+  border-radius: 12px;
+  background: #ededed;
+  color: #242424;
+  text-decoration: none;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.3;
+  text-align: center;
+}
+.camera-toolbar #upload-button.file-picker-button:hover:not(:disabled) { background: #dedede; text-decoration: none; }
+.camera-toolbar #upload-button.file-picker-button:disabled { background: #eeeeee; color: #626262; cursor: not-allowed; }
+#upload-button.file-picker-button svg { width: 20px; height: 20px; flex-shrink: 0; }
+#upload-button.file-picker-button #upload-label { text-decoration: none; }
+#scan-history { position: relative; }
+#scan-history h3 { padding-right: 52px; }
+#delete-session-photo.photo-delete-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid #c8c8c8;
+  border-radius: 50%;
+  background: #f3f3f3;
+  color: #242424;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+  text-decoration: none;
+}
+#delete-session-photo.photo-delete-button:hover:not(:disabled) { background: #e0e0e0; text-decoration: none; }
+#delete-session-photo.photo-delete-button:disabled { color: #747474; cursor: not-allowed; }
+#upload-button.file-picker-button:focus-visible, #delete-session-photo.photo-delete-button:focus-visible, .demo-exit-link:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.demo-exit-link { display: block; width: fit-content; max-width: 90%; margin: 16px 5% 0; color: #444444; font: 14px/1.5 var(--font); text-underline-offset: 4px; }
+@media (max-width: 740px) {
+  .camera-toolbar #upload-button.file-picker-button { min-height: 52px; padding: 10px 12px; gap: 7px; }
+}
+.capture-countdown {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: #242424;
+  color: #ffffff;
+  font-size: 56px;
+  font-weight: 550;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.header .guide-button { grid-column: -2 / -1; grid-row: 1; justify-self: end; margin-left: auto; }

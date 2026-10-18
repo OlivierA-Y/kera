@@ -26,3 +26,7 @@ references/Usage Notes.ipynb
 .env
 .env.*
 !.env.example
+
+# Local profile/history database and backups
+web/.data/
+web/reports/accounts/

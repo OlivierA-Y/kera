@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- THESIS: A care team reviews an observation and prepares its own handoff.
+OWN-WORLD: Extend Kera's monochrome Arial, flat rows and quiet split stage.
+STORY: Short summary, optional sourced explanations, then a draft opened on request.
+FIRST VIEWPORT: Kera header, demo notice, examples and a readable review overview.
+FORM: Scoped extension of the existing workspace; no new visual identity or seed. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Kera | Care-Team Review preview</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./care-review.css">
+  <link rel="stylesheet" href="./finish.css">
+  <script type="module" src="./care-review-preview.js"></script>
+</head>
+<body class="care-preview">
+  <a class="skip-link" href="#care-main">Skip to review</a>
+  <header class="care-header">
+    <a class="brand" href="./" aria-label="Kera camera"><img src="./assets/kera-logo.png" width="140" height="43" alt="Kera"></a>
+    <span>Care-team workflow</span><a href="./">Back to camera ↗</a>
+  </header>
+  <main id="care-main" class="care-main">
+    <div class="care-title"><h1>Care-Team Review</h1><p>Observe. Understand. Prepare a handoff.</p></div>
+    <aside class="care-demo-notice" aria-label="Preview limitations"><strong>Simulated preview</strong><p>These are invented text examples. No photo was analyzed and no model was called. This preview does not show a clinical result.</p></aside>
+    <div class="care-example-controls">
+      <label for="care-example">Explore an example<select id="care-example"></select></label>
+      <button id="care-reload" type="button" class="text-button">Reload example ↻</button>
+      <button id="care-clear" type="button" class="text-button">Clear review</button>
+    </div>
+    <p id="care-preview-status" class="care-preview-status" role="status" aria-live="polite"></p>
+    <div id="care-review-root"></div>
+    <noscript><p>Enable JavaScript to explore the review and edit a sample note.</p></noscript>
+  </main>
+</body>
+</html>

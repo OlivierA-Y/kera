@@ -1,0 +1,110 @@
+{
+  "source_commit": "15d1810b179c0c378a15b4093b7ab8923397d874",
+  "purpose": "Unmodified Kera app before account/onboarding changes, frozen as Demo at Sadman request.",
+  "files": [
+    {
+      "path": "dist/app.js",
+      "sha256": "0856ce1bb2295b4f54437663d13d97098528170c5ae4d2c04468de48f53bfc99"
+    },
+    {
+      "path": "dist/assets/favicon.svg",
+      "sha256": "a8c0fbea225ca1bec49a64269a22e65dae54e4ee413dcc73c5cde606c732dd6e"
+    },
+    {
+      "path": "dist/assets/fonts/Outfit-OFL.txt",
+      "sha256": "c676351bf8576b9aba743cd5eaa8c0e7ee0d51f805d720447b4df4ddb6a2e416"
+    },
+    {
+      "path": "dist/assets/fonts/Outfit-Variable.ttf",
+      "sha256": "fc7287273e66929776e2ba54f144fe699080bec29f61bf649d70d871468aeade"
+    },
+    {
+      "path": "dist/assets/kera-logo.png",
+      "sha256": "d2daef030010964f1a09e93ee3fc6f868b2e5c35c8ecfd908c0e14722a5b8cf7"
+    },
+    {
+      "path": "dist/assets/model.json",
+      "sha256": "20d7f40bc6522ba7b5eba669902d375f032e7218b7a22feffae4f82f5522b76e"
+    },
+    {
+      "path": "dist/camera-adjustment.js",
+      "sha256": "cbed1d20ffd7ece30197206794507e5caa7a3d902964dcd55594701d04c11485"
+    },
+    {
+      "path": "dist/care-evidence.js",
+      "sha256": "2001900eb714bc9977c3ed2879c15126217792bc0b6784e89aa6a030dfc35b45"
+    },
+    {
+      "path": "dist/care-review-fixtures.js",
+      "sha256": "67e2784dfb3d0f2cb765c4ab4aae10fbcee40ecb9d6d057258bcf601992aa40e"
+    },
+    {
+      "path": "dist/care-review-preview.js",
+      "sha256": "4fcc6a7a308a9c1f49be2bf234cda328e545a491773d6bf9221d19f941078428"
+    },
+    {
+      "path": "dist/care-review.css",
+      "sha256": "3cf73574a0411d11ebd7332a77fdebbe0c27d2995adf3cb9b9447d0675ac5a7f"
+    },
+    {
+      "path": "dist/care-review.html",
+      "sha256": "20f2d8aed329e02e4f9d5a77779c137d2fd8def47ffc702ab9adf4ae36d4590c"
+    },
+    {
+      "path": "dist/care-review.js",
+      "sha256": "44e8324ab3444e5edd1b115aabf4c0ceaf11ad5babfc46b1dd673efc8d4c8054"
+    },
+    {
+      "path": "dist/finish.css",
+      "sha256": "194342296820cfbd66d82a34e68a1a26daf28343054cc3cf9d48ac0b0e90d1fb"
+    },
+    {
+      "path": "dist/index.html",
+      "sha256": "b12ee91f78286cdc75abc7c6153f2cc8133303558ad42c6f4fbaaac620aca6a0"
+    },
+    {
+      "path": "dist/ml.js",
+      "sha256": "1dd4edaadc19b2ac8cca062351105a2a12c1a384b72bc58be8fd14892f42a7e0"
+    },
+    {
+      "path": "dist/scan-history.js",
+      "sha256": "ef44dbe7c32bb99585d32e58f24be90535112cc6ea59ffba917651d2726d2d06"
+    },
+    {
+      "path": "dist/scan-processor.js",
+      "sha256": "b49e50f381d137799ede04d7d6207edb30ad9b1f6e58189dfe6d140d091c07d1"
+    },
+    {
+      "path": "dist/scan-worker.js",
+      "sha256": "9e453933bd88e031e35f25d567a7fa0e9b4f29542869b97a275e081083dc3224"
+    },
+    {
+      "path": "dist/style.css",
+      "sha256": "b0ac1b1f5e89992172afe96bc99f279cd196cbd04713192b056795cb64b28f8f"
+    },
+    {
+      "path": "dist/torch.js",
+      "sha256": "77462e364e024dde48b36d64ce29c64df546382e9cdd1afb2faebbea9be67157"
+    },
+    {
+      "path": "dist/touch-regions.js",
+      "sha256": "5955ed999745afdac8401e0a95e9dbc02a8883ec2adb6129cd493f42465223e3"
+    },
+    {
+      "path": "dist/visual.js",
+      "sha256": "b95b206531bc426e8f378a8357e27cbc9eb9af206f64e49da261be62401f2191"
+    },
+    {
+      "path": "server.mjs",
+      "sha256": "5df922f4ee53d39ebc52f121ae2bee641950dbf5c409c3451848b6266aac369a"
+    },
+    {
+      "path": "server/averaging.mjs",
+      "sha256": "ebdd2b8d8ecc0d9f98adc56b87e149766cc86f4551dc004e67b41a6802e62ab3"
+    },
+    {
+      "path": "server/vision.mjs",
+      "sha256": "fefc21fa76eb73d8eeb36a0ec5e3e01e5776344aa9001ff63ccdfeb708f087fa"
+    }
+  ]
+}

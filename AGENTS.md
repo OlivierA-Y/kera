@@ -1,0 +1,14 @@
+# Kera
+
+Kera now has three entry choices: Individual, Healthcare worker, and Demo.
+
+Sadman explicitly requires the pre-account app to remain unchanged as the Demo version. `web/demo-original/` is a frozen snapshot of commit `15d1810b179c0c378a15b4093b7ab8923397d874`; its manifest records every original file hash. The main server exposes it at `/demo/` using its original server, provider adapter, UI, labels and assets. Add future features to the main `web/dist/` and main server, preserving this separation. Changes to the frozen snapshot require Sadman's explicit instruction to change Demo. `web/tests/demo.test.mjs` verifies all frozen hashes, HTTP asset bytes and isolated original endpoints.
+
+Current account identity selection is a local browser demo, not verified authentication. Durable domain data uses stable IDs in SQLite outside the public directory, so cookie loss does not delete profiles or history and real authentication can be added later. Photos remain temporary. Optional onboarded AI context excludes names/email and is shown before sharing. Reported sex options are Male, Female, and Other / prefer not to answer, with an unprovided state. Preserve the raw Hb model output and the original general analysis in Demo.
+
+The approved feature plan and verification record are at `/Users/sadman/wingman/plans/kera-accounts-onboarding-history.md`. Preserve the monochrome Outfit visual authority in `web/DESIGN.md`. `npm --prefix web test` runs the deterministic suite; `web/tests/accounts-browser.mjs` exercises the new UI with temporary data, synthetic photos and mocked AI, with module/executable configuration described in `web/README.md`.
+
+On October 18 Sadman authorized three presentation changes around Demo: a nonpersistent one-visit entry with a return link, an icon-only photo-delete control, and an explicit photo-file chooser button. These are shared overlays in `web/dist/capture-controls.*` and `demo-session.js`, injected by the main server; the frozen original source and analysis remain unchanged. Demo reload/back-forward restoration returns to the normal entry flow. The Individual/Care team camera has a cancelable five-second timer, with a browser regression check; do not lose that control when changing account flows.
+
+
+The account workspace uses a charcoal sidebar, mobile navigation drawer, compact history table and direct Hb reference summary. Preserve the original mode-tab DOM controls when moving navigation so camera/session listeners remain connected. The review branch is `codex/accounts-onboarding-history`; its Vercel Git auto-deployment is disabled. Main has separate later MLH/deployment changes requiring reconciliation before merge. Reviewers should run this branch locally with Node >=22.13; do not deploy its SQLite account server as a stateless Vercel function.

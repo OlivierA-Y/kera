@@ -1,3 +1,5 @@
+import { createAccountExperience } from './accounts.js';
+import { renderHealthContext } from './health-context.js';
 import { createScanHistory } from './scan-history.js';
 import { createTorchController } from './torch.js';
 import { initializeTouchRegions } from './touch-regions.js';
@@ -5,6 +7,7 @@ import { initializeVisualAnalysis } from './visual.js';
 import { validateModel, validateBox } from './ml.js';
 import { createScanProcessor } from './scan-processor.js';
 
+let accounts=null;
 const $ = id => document.getElementById(id);
 const video=$('video'), photo=$('photo'), stage=$('viewfinder');
 const context=photo.getContext('2d',{willReadFrequently:true,colorSpace:'srgb'});
@@ -13,6 +16,8 @@ const labels={nail:'Middle nail',skin:'Nearby skin',white:'White reference'};
 const prompts={nail:'Draw around the whole middle fingernail',skin:'Draw on skin between the middle finger’s two joints',white:'Draw around the plain white reference'};
 let model=null, stream=null, cameraRequest=0, facing='environment', mode='empty', active='nail', boxes={}, drag=null, snapshot=null, lastSource='camera';
 let loadVersion=0, analysis='skin',hbResultReady=false;
+let captureTimer=null;
+function cancelCaptureTimer(){if(captureTimer)clearTimeout(captureTimer.handle);captureTimer=null;$('capture-countdown').hidden=true;$('capture-countdown').textContent='';const label=$('capture-button-label');if(label)label.textContent='Take photo in 5s';$('capture-button').setAttribute('aria-label','Take photo in 5 seconds');}
 let currentPhotoId=null,photoNumber=0;
 function recordPhoto(source,key=null){
   const existing=scanHistory.findByKey(key);if(existing)return existing.scan.id;
@@ -22,7 +27,7 @@ function recordPhoto(source,key=null){
 const MAX_SCANS=100;
 const MAX_PENDING_SCANS=3,MAX_PENDING_BYTES=128*1024*1024;
 let scans=[],processor=createScanProcessor(),sessionVersion=0,currentScanId=null,finalizing=false,actionBusy=false,uploadBusy=false,averageController=null;
-const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null,onResult:value=>{if(currentPhotoId)scanHistory.attachReview(currentPhotoId,value);}});
+const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null,getContext:()=>accounts?.captureContext(),onResult:(value,recordContext)=>{if(currentPhotoId)scanHistory.attachReview(currentPhotoId,value);if(recordContext)void accounts.saveCompleted(recordContext,{kind:'visual',source_id:value.analysis_id,captured_at:new Date().toISOString(),model:value.model,provider:value.provider,data:{image_quality:value.image_quality,observations:value.observations,...(value.context_insights?{insights:value.context_insights}:{})}});}});
 const touchEditor=initializeTouchRegions({getState:()=>({source:photo,boxes,active,editable:analysis==='hb'&&mode==='photo'&&Boolean(snapshot)&&!currentScanId&&!finalizing&&!actionBusy&&!uploadBusy}),onSave:(kind,box)=>{selectRegion(kind);saveRegion(box);}});
 const scanHistory=createScanHistory({root:$('scan-history'),list:$('scan-history-list'),previous:$('previous-saved-photo'),next:$('next-saved-photo'),position:$('saved-photo-position'),deleteButton:$('delete-session-photo'),onDelete:deleteHistoryPhoto,onSelect:restoreHistoryPhoto,onError:error});
 function restoreHistoryPhoto(entry,image){
@@ -34,7 +39,7 @@ function restoreHistoryPhoto(entry,image){
   if(analysis==='hb')hbResultReady=false;
   visual.reset(true);setMode('photo');selectRegion('nail');updateRegions();
   if(analysis==='skin'&&entry.scan.review)visual.restoreReview(entry.scan.review);
-  error('');photoNotice(analysis==='hb'?'Saved photo selected. Edit its boxes; finishing replaces this reading rather than adding a duplicate.':'Saved photo selected. Skin & nail shows the original photo without region boxes.');
+  error('');photoNotice(analysis==='hb'?'Saved photo selected. Edit its boxes; finishing replaces this reading rather than adding a duplicate.':'Saved photo selected. Visual Health Review shows the original photo without region boxes.');
 }
 
 async function deleteHistoryPhoto(id,remaining){
@@ -67,7 +72,7 @@ function show(id,yes){$(id).hidden=!yes;}
 function error(message){$('error').textContent=message;show('error',Boolean(message));}
 function notice(message){$('notice').textContent=message;}
 function cameraStatus(text,live=false){$('camera-status').textContent=text;$('camera-status').classList.toggle('is-live',live);}
-function stopTracks(){torch.reset();if(stream)stream.getTracks().forEach(track=>track.stop());stream=null;video.srcObject=null;}
+function stopTracks(){cancelCaptureTimer();torch.reset();if(stream)stream.getTracks().forEach(track=>track.stop());stream=null;video.srcObject=null;}
 function stopCamera(){cameraRequest++;stopTracks();if(mode==='live')setMode('empty');}
 function setMode(next){
   touchEditor.close();mode=next;
@@ -93,7 +98,7 @@ function renderAnalysis(){
   show('hb-workflow',!skin);show('visual-analysis',skin);
   show('box-layer',!skin);show('drawing-prompt',!skin&&mode==='photo');
   $('upload-label').textContent=hasPhoto&&lastSource==='upload'?'Replace photo':'Upload a photo';
-  $('workflow-label').textContent=skin?'Skin & nail':'Hemoglobin';
+  $('workflow-label').textContent=skin?'Visual Health Review':'Hemoglobin';
   $('workflow-step').textContent=skin?(hasPhoto?'02 / Review':'01 / Capture'):mode==='result'?'03 / Estimate':hasPhoto?'02 / Mark regions':'01 / Capture';
   $('view-heading').textContent=!skin&&mode==='result'?(hasPhoto?'Last photo':'Scan complete'):hasPhoto?'Your photo':'Your camera';
   $('capture-instruction').textContent=skin?'Bring the affected skin or nail into clear, even light.':'Keep your middle finger and a white reference in view.';
@@ -107,7 +112,7 @@ function renderAnalysis(){
 }
 function selectAnalysis(next){
   if(next===analysis||finalizing||actionBusy||uploadBusy)return;
-  visual.deactivate();
+  cancelCaptureTimer();visual.deactivate();
   touchEditor.close();analysis=next;drag=null;
   if(snapshot&&currentPhotoId)boxes=structuredClone(scanHistory.get(currentPhotoId)?.boxes||{});
   updateRegions();
@@ -120,7 +125,7 @@ function selectAnalysis(next){
 for(const [id,value] of [['tab-hb','hb'],['tab-skin','skin']]){
   $(id).addEventListener('click',()=>selectAnalysis(value));
   $(id).addEventListener('keydown',event=>{
-    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
     event.preventDefault();const next=event.key==='Home'?'hb':event.key==='End'?'skin':analysis==='skin'?'hb':'skin';selectAnalysis(next);$(next==='skin'?'tab-skin':'tab-hb').focus();
   });
 }
@@ -160,15 +165,26 @@ function loadSnapshot(source,width,height,origin,key=null){
 }
 $('start-camera').addEventListener('click',startCamera);
 $('capture-button').addEventListener('click',()=>{
-  if(mode!=='live'||!video.videoWidth)return;
-  try{loadSnapshot(video,video.videoWidth,video.videoHeight,'camera');}catch(e){error(e.message);}
+  if(captureTimer){cancelCaptureTimer();photoNotice('Photo timer canceled.');return;}
+  if(mode!=='live'||!video.videoWidth||torch.state.busy)return;
+  const request=cameraRequest,deadline=performance.now()+5000;
+  captureTimer={handle:null};$('capture-button-label').textContent='Cancel timer';$('capture-button').setAttribute('aria-label','Cancel photo timer');
+  function tick(){
+    if(!captureTimer)return;
+    if(mode!=='live'||request!==cameraRequest||!video.srcObject){cancelCaptureTimer();return;}
+    const remaining=deadline-performance.now();
+    if(remaining<=0){cancelCaptureTimer();try{loadSnapshot(video,video.videoWidth,video.videoHeight,'camera');}catch(e){error(e.message);}return;}
+    const seconds=Math.ceil(remaining/1000),output=$('capture-countdown');output.hidden=false;if(output.textContent!==String(seconds)){output.textContent=String(seconds);output.setAttribute('aria-label',`Photo in ${seconds} seconds`);}
+    captureTimer.handle=setTimeout(tick,Math.min(200,remaining));
+  }
+  tick();
 });
 $('stop-camera').addEventListener('click',()=>{stopCamera();photoNotice('Camera stopped.');});
 $('switch-camera').addEventListener('click',async()=>{
   $('switch-camera').disabled=true;facing=facing==='user'?'environment':'user';
   try{await startCamera();}finally{$('switch-camera').disabled=false;}
 });
-$('upload-button').addEventListener('click',()=>$('file-input').click());
+$('upload-button').addEventListener('click',()=>{cancelCaptureTimer();$('file-input').click();});
 $('file-input').addEventListener('change',async event=>{
   if(finalizing||actionBusy||(analysis==='hb'&&mode==='result')){event.target.value='';return;}
   const file=event.target.files[0];if(!file)return;
@@ -350,7 +366,7 @@ $('predict-button').addEventListener('click',async()=>{
   if(analysis!=='hb'||finalizing||actionBusy)return;
   error('');
   if(!currentReady()&&!scans.some(scan=>scan.state==='pending'||scan.state==='complete'))return;
-  const version=sessionVersion;finalizing=true;loadVersion++;cameraRequest++;stopTracks();
+  const version=sessionVersion,recordContext=accounts?.captureContext();finalizing=true;loadVersion++;cameraRequest++;stopTracks();
   if(mode==='live')setMode('empty');renderSession();
   try{
     if(currentReady()&&(activeScanCount()<MAX_SCANS||scans.some(scan=>scan.id===currentPhotoId))){
@@ -376,7 +392,7 @@ $('predict-button').addEventListener('click',async()=>{
     if(version!==sessionVersion)return;
     hbResultReady=true;
     $('prediction-value').textContent=result.hemoglobin_g_per_l.toFixed(1);
-    $('result-caption').textContent='Average estimated hemoglobin · unadjusted model output';
+    $('result-caption').textContent='Estimated hemoglobin · unadjusted model output';
     const failed=scans.filter(scan=>scan.state==='failed').length;
     $('average-caption').textContent=`Based on ${result.scan_count} ${result.scan_count===1?'reading':'readings'}.${failed?` ${failed} ${failed===1?'photo could':'photos could'} not be read and ${failed===1?'was':'were'} left out.`:''}`;
     const warningArea=$('quality-warnings');warningArea.replaceChildren();
@@ -389,6 +405,7 @@ $('predict-button').addEventListener('click',async()=>{
     show('quality-warnings',result.warnings.length>0||failed>0);
     if(!currentScanId){snapshot=null;boxes={};visual.reset(false);$('box-layer').replaceChildren();context.clearRect(0,0,photo.width,photo.height);}
     setMode('result');drawBoxes();photoNotice('Your scan is complete. The local Kera server calculated one average from your readings.');
+    if(recordContext){const sourceHash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(readings)));if(version!==sessionVersion)return;const record={kind:'hb',source_id:'hb-'+Array.from(new Uint8Array(sourceHash),v=>v.toString(16).padStart(2,'0')).join(''),captured_at:new Date().toISOString(),model:'Kera frozen three-seed MLP / middle-rgb-percentiles-white-median-v1',provider:'On-device MLP',data:{...result,readings}};void accounts.saveCompleted(recordContext,record);renderHealthContext($('hb-personal-context'),recordContext.health,result.hemoglobin_g_per_l,async insights=>{record.data.insights=insights;await accounts.saveCompleted(recordContext,record);});}
     $('result-panel').setAttribute('tabindex','-1');$('result-panel').focus({preventScroll:true});
     if(window.innerWidth<740)$('result-panel').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
   }catch(e){error(e.message);}
@@ -396,7 +413,7 @@ $('predict-button').addEventListener('click',async()=>{
 });
 const regionHelp=$('region-help-dialog');
 let guideTrigger=$('guide-button');
-for(const id of ['region-help-button','guide-button'])$(id).addEventListener('click',()=>{guideTrigger=$(id);show('guide-skin',analysis==='skin');show('guide-hb',analysis==='hb');$('region-help-title').textContent=analysis==='skin'?'Skin & nail guide':'Photo and region guide';regionHelp.showModal();$('region-help-title').focus();});
+for(const id of ['region-help-button','guide-button'])$(id).addEventListener('click',()=>{guideTrigger=$(id);show('guide-skin',analysis==='skin');show('guide-hb',analysis==='hb');$('region-help-title').textContent=analysis==='skin'?'Visual Health Review guide':'Photo and region guide';regionHelp.showModal();$('region-help-title').focus();});
 for(const choice of document.querySelectorAll('[name="region-help-setup"]'))choice.addEventListener('change',()=>{
   show('region-help-dock',choice.value==='dock');show('region-help-phone',choice.value==='phone');
 });
@@ -428,4 +445,8 @@ scanDockMedia.addEventListener('change',mountScanActions);
 new ResizeObserver(()=>document.documentElement.style.setProperty('--scan-dock-height',$('mobile-scan-dock').getBoundingClientRect().height+'px')).observe($('mobile-scan-dock'));
 mountScanActions();
 setMode('empty');notice('Take or upload a close-up. Nothing is sent without your permission.');loadModel();
+function resetProfileCapture(){
+  cameraRequest++;loadVersion++;sessionVersion++;averageController?.abort();averageController=null;processor.close();processor=createScanProcessor();scans=[];currentScanId=null;currentPhotoId=null;photoNumber=0;hbResultReady=false;finalizing=false;actionBusy=false;uploadBusy=false;drag=null;snapshot=null;boxes={};stopTracks();touchEditor.close();visual.reset(false);scanHistory.clear();photo.width=photo.height=1;context.clearRect(0,0,1,1);$('box-layer').replaceChildren();$('file-input').value='';$('hb-personal-context').replaceChildren();$('hb-personal-context').hidden=true;$('prediction-value').textContent='-';$('average-caption').textContent='';error('');setMode('empty');updateRegions();
+}
+accounts=createAccountExperience({resetCapture:resetProfileCapture});
 

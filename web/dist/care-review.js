@@ -1,3 +1,4 @@
+import { validateInsights } from './health-context.js';
 import { CATEGORIES, associationFor, categoryReferenceFor } from './care-evidence.js';
 
 export const LIMITATION = 'This experimental photo review cannot diagnose or rule out disease. An unclear result does not mean normal or disease-free. Clinical assessment is needed for health concerns.';
@@ -241,6 +242,8 @@ export function createCareReview(root, { synthetic = false, clipboard = globalTh
     }
     provenance.append(node('p', `Analysis provider: ${review.metadata.provider}. Model: ${review.metadata.model}.`));
     layout.append(findings, noteSection);if(priority)root.append(priority);root.append(summary, layout, provenance);
+    if(value.context_warning)root.append(node('p','Background insights were unavailable. The visual observations are unchanged.','small-note'));
+    if(value.context_insights){try{const insights=validateInsights(value.context_insights),section=node('section',undefined,'care-context-insights');section.append(node('h2','Your background, considered'),node('p',insights.summary));for(const c of insights.considerations)section.append(node('h3',c.reported_detail),node('p',c.why_it_matters),node('p',c.question_for_clinician));section.append(node('p',insights.limitations,'small-note'));root.append(section);}catch{root.append(node('p','Background insights were unavailable. The visual observations above are unchanged.','small-note'));}}
     return true;
   }
   return { show, clear };

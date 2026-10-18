@@ -1,14 +1,19 @@
 /** Local-only server for static Kera + optional opt-in visual observations. Node >=22. */
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
+import { createApp as createOriginalDemo } from './demo-original/server.mjs';
 import { readFile, realpath } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { analyzePhotos, validateObservation, VisionError } from './server/vision.mjs';
 import { averageReadings, MAX_AVERAGE_BODY } from './server/averaging.mjs';
+import { validateProfileContext, analyzeHbContext } from './server/context.mjs';
+import { validateInsights } from './dist/health-context.js';
+import { openRecords, recordsAPI } from './server/records.mjs';
 
 const ROOT = fileURLToPath(new URL('./dist/', import.meta.url));
 const MAX_BODY = 5_000_000;
+export const DEMO_UI_HEAD = '<script src="/demo-session.js" data-demo-ui-overlay></script><link rel="stylesheet" href="/capture-controls.css" data-demo-ui-overlay><script type="module" src="/capture-controls.js" data-demo-ui-overlay></script>';
 const DEFAULT_MODEL = 'google/gemini-2.5-flash';
 const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.json':'application/json', '.png':'image/png', '.svg':'image/svg+xml' };
 const LIMITATION = 'Experimental skin and nail review, not a diagnosis. Photos cannot confirm or rule out skin cancer, fungal infection, eczema or psoriasis. A clinician must assess concerning changes.';
@@ -40,8 +45,9 @@ export function validateInput(body) {
   if (!seen.has('top')) throw new VisionError(400,'top_required','Include a top view of the nail.');
   return body.photos.map(({view,data_url})=>({view,data_url}));
 }
-export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=process.env.OPENROUTER_VISION_MODEL||DEFAULT_MODEL, provider=analyzePhotos, allowDataCollection=process.env.OPENROUTER_ALLOW_DATA_COLLECTION==='true', maxRequests=10, timeoutMs=45000 }={}) {
-  let active=0;let recent=[];
+export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=process.env.OPENROUTER_VISION_MODEL||DEFAULT_MODEL, provider=analyzePhotos, allowDataCollection=process.env.OPENROUTER_ALLOW_DATA_COLLECTION==='true', maxRequests=10, timeoutMs=45000, contextProvider=analyzeHbContext, demoProvider, dataPath=process.env.KERA_DATA_PATH||fileURLToPath(new URL('./.data/kera.sqlite',import.meta.url)) }={}) {
+  let active=0;let recent=[];let records=null;let demo=null,demoReady=null;
+  function getDemo(){if(!demoReady){demo=createOriginalDemo({apiKey,model,allowDataCollection,maxRequests,timeoutMs,...(demoProvider?{provider:demoProvider}:{})});demoReady=new Promise((resolve,reject)=>{demo.once('error',reject);demo.listen(0,'127.0.0.1',()=>resolve(demo));});}return demoReady;}
   const server=createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','no-referrer');
@@ -53,6 +59,19 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
       const host=req.headers.host;
       if (!host || !new Set([`localhost:${server.address().port}`,`127.0.0.1:${server.address().port}`,`[::1]:${server.address().port}`]).has(host)) throw new VisionError(403,'invalid_host','This local server accepts localhost requests only.');
       const url=new URL(req.url,`http://${host}`);
+      if(url.pathname==='/demo'){res.writeHead(302,{Location:'/demo/'});res.end();return;}
+      if(url.pathname.startsWith('/demo/')){
+        if(req.headers.origin && req.headers.origin!==`http://${host}` || req.headers['sec-fetch-site'] && !['same-origin','none'].includes(req.headers['sec-fetch-site']))throw new VisionError(403,'cross_origin','Open Demo from the Kera app.');
+        const original=await getDemo(),port=original.address().port,internalHost=`127.0.0.1:${port}`;
+        const headers={...req.headers,host:internalHost,...(req.headers.origin?{origin:`http://${internalHost}`}:{})};
+        const upstream=httpRequest({host:'127.0.0.1',port,path:req.url.slice('/demo'.length),method:req.method,headers},response=>{
+          if(req.method==='GET'&&response.statusCode===200&&['/demo/','/demo/index.html'].includes(url.pathname)){
+            const chunks=[];response.on('data',chunk=>chunks.push(chunk));response.on('end',()=>{const html=Buffer.concat(chunks).toString('utf8').replace('</head>',DEMO_UI_HEAD+'</head>');const outputHeaders={...response.headers,'content-length':Buffer.byteLength(html),'cache-control':'no-store'};delete outputHeaders['transfer-encoding'];res.writeHead(200,outputHeaders);res.end(html);});
+          }else{res.writeHead(response.statusCode,response.headers);response.pipe(res);}
+        });
+        upstream.on('error',()=>{if(!res.headersSent)json(res,502,{error:{code:'demo_unavailable',message:'The original Demo could not be reached. Reload to retry.'}});else res.destroy();});
+        res.on('close',()=>{if(!res.writableEnded)upstream.destroy();});req.pipe(upstream);return;
+      }
       if (url.pathname==='/api/scans/average') {
         if (req.method!=='POST') throw new VisionError(405,'method_not_allowed','Use POST to average scans.');
         if (req.headers.origin!==`http://${host}` || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Scan averaging must start from this app.');
@@ -61,13 +80,15 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
         const body=await readJson(req,{maxBody:MAX_AVERAGE_BODY,tooLarge:'The scan request is too large. Send at most 100 short readings.',invalidJson:'The scan request could not be read.'});
         return json(res,200,averageReadings(body));
       }
-      if (url.pathname==='/api/vision/status' && req.method==='GET') return json(res,200,{configured:Boolean(apiKey),provider:'OpenRouter',model:apiKey?model:null,dataCollection:allowDataCollection?'allowed':'denied',privacy:'Photos are sent through OpenRouter to its selected model provider only after explicit permission. Kera does not save photos or observations.'});
+      if (url.pathname==='/api/vision/status' && req.method==='GET') return json(res,200,{configured:Boolean(apiKey),provider:'OpenRouter',model:apiKey?model:null,dataCollection:allowDataCollection?'allowed':'denied',privacy:'Photos are sent through OpenRouter to its selected model provider only after explicit permission. Kera saves completed structured results to the selected profile, without saving photos.'});
       if (url.pathname==='/api/vision/analyze') {
         if (req.method!=='POST') throw new VisionError(405,'method_not_allowed','Use POST for visual analysis.');
         if (req.headers.origin!==`http://${host}` || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Visual analysis must start from this app.');
         if (req.headers['content-type']?.split(';')[0].trim()!=='application/json') throw new VisionError(415,'invalid_type','Use a JSON image request.');
         if (Number(req.headers['content-length']||0)>MAX_BODY) throw new VisionError(413,'too_large','The photos are too large.');
-        const photos=validateInput(await readJson(req));
+        const body=await readJson(req);const photos=validateInput(body);
+        const profileContext=body.profile_context===undefined?null:validateProfileContext(body.profile_context);
+        if(profileContext&&body.context_consent!==true)throw new VisionError(400,'context_consent_required','Confirm sharing the displayed background.');
         if (!apiKey) throw new VisionError(503,'not_configured','Visual analysis is not connected on this server yet. Hemoglobin estimation still works on your device.');
         recent=recent.filter(time=>Date.now()-time<60000);
         if (recent.length>=maxRequests || active>=1) throw new VisionError(429,'local_limit','Please wait before starting another visual analysis.');
@@ -75,14 +96,40 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
         const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);
         const disconnected=()=>{if(!res.writableEnded)controller.abort();};res.on('close',disconnected);
         try {
-          const observation=validateObservation(await provider(photos,{apiKey,model,allowDataCollection,signal:controller.signal}),photos.some(p=>p.view==='side'));
+          const raw=await provider(photos,{apiKey,model,allowDataCollection,signal:controller.signal,profileContext});
+          const observation=validateObservation({image_quality:raw.image_quality,observations:raw.observations},photos.some(p=>p.view==='side'));
+          let contextInsights=null;if(profileContext&&raw.context_insights){try{contextInsights=validateInsights(raw.context_insights);}catch{}}
           if (controller.signal.aborted) throw new VisionError(504,'provider_timeout','The vision request timed out or was canceled.');
-          if (!res.destroyed) json(res,200,{...observation,provider:'OpenRouter',model,limitation:LIMITATION,analysis_id:randomUUID()});
+          if (!res.destroyed) json(res,200,{...observation,...(contextInsights?{context_insights:contextInsights}:profileContext?{context_warning:'Background insights were unavailable. The visual observations are unchanged.'}:{}),provider:'OpenRouter',model,limitation:LIMITATION,analysis_id:randomUUID()});
         } catch(e) {
           if(controller.signal.aborted)throw new VisionError(504,'provider_timeout','The vision request timed out or was canceled.');
           throw e;
         } finally { clearTimeout(timer);res.off('close',disconnected);active--; }
         return;
+      }
+      if(url.pathname==='/api/context/hb'){
+        if(req.method!=='POST')throw new VisionError(405,'method_not_allowed','Use POST for background insights.');
+        if(req.headers.origin!==`http://${host}` || req.headers['sec-fetch-site']&&req.headers['sec-fetch-site']!=='same-origin')throw new VisionError(403,'cross_origin','Generate insights from Kera.');
+        if(req.headers['content-type']?.split(';')[0].trim()!=='application/json')throw new VisionError(415,'invalid_type','Use JSON.');
+        const body=await readJson(req,{maxBody:12000,tooLarge:'The background is too long.',invalidJson:'The background could not be read.'});
+        if(body?.consent!==true)throw new VisionError(400,'consent_required','Confirm sharing the displayed background.');
+        const profileContext=validateProfileContext(body.profile_context);
+        if(!Number.isFinite(body.hemoglobin_g_per_l)||body.hemoglobin_g_per_l<=0||body.hemoglobin_g_per_l>1000)throw new VisionError(400,'invalid_estimate','Use a completed Hb estimate.');
+        if(!apiKey)throw new VisionError(503,'not_configured','AI background insights are not connected. The estimate and reference context remain available.');
+        recent=recent.filter(t=>Date.now()-t<60000);if(active>=1||recent.length>=maxRequests)throw new VisionError(429,'local_limit','Please wait before generating more insights.');recent.push(Date.now());active++;
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);const disconnected=()=>{if(!res.writableEnded)controller.abort();};res.on('close',disconnected);
+        try{const insights=validateInsights(await contextProvider(profileContext,body.hemoglobin_g_per_l,{apiKey,model,allowDataCollection,signal:controller.signal}));if(controller.signal.aborted)throw new VisionError(504,'provider_timeout','Background insights timed out.');if(!res.destroyed)json(res,200,{insights,provider:'OpenRouter',model});}finally{active--;clearTimeout(timer);res.off('close',disconnected);}return;
+      }
+      if (/^\/api\/(accounts|account|profiles|results|organizations|invitations|invitation|memberships|backup|restore)(\/|$)/.test(url.pathname)) {
+        if (req.headers.origin && req.headers.origin!==`http://${host}` || req.headers['sec-fetch-site'] && !['same-origin','none'].includes(req.headers['sec-fetch-site'])) throw new VisionError(403,'cross_origin','Open records from the Kera app.');
+        let body;
+        if (!['GET','HEAD'].includes(req.method)) {
+          if (req.headers.origin!==`http://${host}`) throw new VisionError(403,'cross_origin','Record changes must start from the Kera app.');
+          if (req.method!=='DELETE' && req.headers['content-type']?.split(';')[0].trim()!=='application/json') throw new VisionError(415,'invalid_type','Use a JSON record request.');
+          if (req.method!=='DELETE') body=await readJson(req,{maxBody:url.pathname==='/api/restore'?8_000_000:150_000,tooLarge:'The record or backup is too large.',invalidJson:'The record could not be read.'});
+        }
+        records ||= openRecords(dataPath);
+        return json(res,200,recordsAPI(records,req,url,body));
       }
       if (url.pathname.startsWith('/api/')) throw new VisionError(404,'not_found','This endpoint does not exist.');
       if (!['GET','HEAD'].includes(req.method)) throw new VisionError(405,'method_not_allowed','This method is not supported.');
@@ -100,6 +147,7 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
       json(res,e instanceof VisionError?e.status:500,{error:{code:e instanceof VisionError?e.code:'internal_error',message:e instanceof VisionError?e.message:'Visual analysis could not complete. Try again.'}});
     }
   });
+  server.on('close',()=>{records?.close();if(demo){demo.closeAllConnections();demo.close();}});
   server.requestTimeout=55000;server.headersTimeout=10000;
   return server;
 }
