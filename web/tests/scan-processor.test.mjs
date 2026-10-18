@@ -145,3 +145,21 @@ test('Invalid worker estimates cannot enter the scan average', async t => {
     await rejection;
   }
 });
+
+test('Real worker applies MLH correction before inference and rejects bad sticker patches without silent fallback', async t=>{
+  const {createProfile,fitStickerCorrection}=await import('../dist/sticker-calibration.js');
+  const rgb=[[145,95,80],[160,115,100],[210,210,210],[180,65,40],[55,65,155],[190,165,40]];
+  const imageFor=colors=>{const data=new Uint8ClampedArray(60*12*4);for(let y=0;y<12;y++)for(let x=0;x<60;x++)data.set([...colors[Math.floor(x/10)],255],(y*60+x)*4);return{width:60,height:12,data};};
+  const regions=Object.fromEntries(['nail','skin','white','mlhM','mlhL','mlhH'].map((k,i)=>[k,[0,i*10,10,i*10+10]]));
+  const reference=createProfile(imageFor(rgb),regions);
+  const changed=rgb.map(c=>[Math.round(.85*c[0]+.1*c[1]),Math.round(.1*c[0]+.85*c[1]),Math.round(.95*c[2])]);
+  const photo=imageFor(changed),original=photo.data.slice();
+  const {sampleSticker}=await import('../dist/sticker-calibration.js');
+  const correction=fitStickerCorrection(sampleSticker(photo,regions),reference);
+  const expected=predict(model,extractFeatures(photo,regions,correction.transform).features);
+  const processor=createScanProcessor({workerFactory:nodeWorkerFactory});t.after(()=>processor.close());
+  const result=await processor.process({id:'sticker',model,image:photo,boxes:regions,calibration:reference});
+  assert.equal(result.hemoglobin_g_per_l,expected);
+  assert.ok(result.warnings.some(w=>w.includes('Experimental MLH')));assert.deepEqual(photo.data,original);
+  await assert.rejects(processor.process({id:'invalid',model,image:photo,boxes:{...regions,mlhM:regions.mlhL},calibration:reference}),/separate/);
+});

@@ -45,7 +45,7 @@ try {
     assert.equal(await page.locator('#care-handoff-note').count(), 0);
     assert.equal(await page.locator('#vision-results').isHidden(), true);
   }
-  await page.goto(base); await upload();
+  await page.goto(base); await page.locator('#tab-skin').click(); await upload();
   assert.equal(calls, 0); await open();
   assert.match(await page.locator('#vision-connection').innerText(), /OpenRouter.*synthetic-model/);
   assert.equal(await page.locator('#send-vision').isDisabled(), true);
@@ -112,7 +112,7 @@ try {
   for (const width of [1440, 768, 390]) {
     // Fresh pages avoid Chromium full-page compositing artifacts after viewport changes.
     const screen = await context.newPage();
-    await screen.setViewportSize({ width, height: 1000 }); await screen.goto(base);
+    await screen.setViewportSize({ width, height: 1000 }); await screen.goto(base); await screen.locator('#tab-skin').click();
     await screen.locator('#file-input').setInputFiles(fixture);
     await screen.locator('#open-vision').click();
     await screen.waitForFunction(() => document.getElementById('vision-connection').textContent.includes('synthetic-model'));
@@ -126,7 +126,7 @@ try {
   pass('integrated review/note fit 390/768/1440px alongside existing app');
   for (const width of [1440, 390]) {
     const capture = await context.newPage();
-    await capture.setViewportSize({ width, height: 1000 }); await capture.goto(base);
+    await capture.setViewportSize({ width, height: 1000 }); await capture.goto(base); await capture.locator('#tab-skin').click();
     await capture.locator('#start-camera').waitFor();
     assert.equal(await capture.locator('.skin-review-steps li').count(), 3);
     await capture.locator('#review-categories > summary').click();
@@ -138,6 +138,7 @@ try {
   }
   pass('guided capture and optional category explanation fit desktop and phone');
   await page.locator('#tab-hb').click();
+  await page.locator('#sticker-mode').selectOption('plain');
   await page.waitForFunction(() => document.getElementById('model-note').textContent.includes('Runs on your device'));
   assert.equal(await page.locator('#annotate-panel').isVisible(), true);
   assert.equal(await page.locator('#session-actions').isVisible(), false);

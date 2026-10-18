@@ -57,7 +57,7 @@ export function createScanProcessor({ workerFactory, timeoutMs = 60000 } = {}) {
   }
 
   return {
-    async process({ id, model, image, boxes }) {
+    async process({ id, model, image, boxes, calibration=null }) {
       if (closed) throw new Error('Scan processing has closed. Please reload Kera Check.');
       if (!((typeof id === 'string' && id.length > 0) || (typeof id === 'number' && Number.isFinite(id)))) {
         throw new Error('The scan needs a valid identifier. Please try again.');
@@ -82,7 +82,7 @@ export function createScanProcessor({ workerFactory, timeoutMs = 60000 } = {}) {
         const timer=setTimeout(()=>failWorker(target,new Error('This photo took too long to process. Please take another photo.')),timeoutMs);
         pending.set(id, { resolve, reject, timer });
         try {
-          target.postMessage({ id, model, image: { width: image.width, height: image.height, buffer }, boxes }, [buffer]);
+          target.postMessage({ id, model, image: { width: image.width, height: image.height, buffer }, boxes, calibration }, [buffer]);
         } catch (error) {
           pending.delete(id);
           clearTimeout(timer);

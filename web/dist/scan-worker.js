@@ -1,3 +1,4 @@
+import {sampleSticker,fitStickerCorrection} from './sticker-calibration.js';
 import { validateModel, extractFeatures, predict } from './ml.js';
 
 // Photo processing stays in this worker. Only an estimate and quality warnings
@@ -15,7 +16,13 @@ self.addEventListener('message', ({ data }) => {
       height: image.height,
       data: new Uint8ClampedArray(image.buffer),
     };
-    const { features, warnings } = extractFeatures(pixels, boxes);
+    let { features, warnings } = extractFeatures(pixels, boxes);
+    if(data.calibration){
+      const correction=fitStickerCorrection(sampleSticker(pixels,boxes),data.calibration);
+      const corrected=extractFeatures(pixels,boxes,correction.transform);
+      features=corrected.features;warnings=[...new Set([...warnings,...corrected.warnings])];
+      warnings.push('Experimental MLH sticker correction applied against a saved webcam reference. Color matching does not establish hemoglobin accuracy.');
+    }
     const estimate = predict(model, features);
     if (!Number.isFinite(estimate) || estimate <= 0 || estimate > 1000) {
       throw new Error('The photo did not produce a usable estimate. Please take another photo.');
