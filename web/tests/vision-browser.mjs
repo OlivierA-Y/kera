@@ -26,7 +26,7 @@ async function upload(p,id='file-input'){
 async function open(p){await click(p,'open-vision');await wait(p,"document.getElementById('vision-connection').textContent.includes('Nothing is sent')");}
 async function consent(p){await click(p,'vision-consent');await click(p,'send-vision');}
 try{
- const p=await browser.newPage({width:1440,height:1000});await p.goto(base);assert.equal(await p.eval("document.getElementById('tab-skin').getAttribute('aria-selected')"),'true');await upload(p);await click(p,'tab-hb');assert.equal(await p.eval("document.getElementById('visual-analysis').hidden"),true);assert.equal(await p.eval("document.getElementById('annotate-panel').hidden"),false);await click(p,'tab-skin');assert.equal(await p.eval("document.getElementById('hb-workflow').hidden"),true);await open(p);
+ const p=await browser.newPage({width:1440,height:1000});await p.goto(base);await click(p,'tab-skin');assert.equal(await p.eval("document.getElementById('tab-skin').getAttribute('aria-selected')"),'true');await upload(p);await click(p,'tab-hb');assert.equal(await p.eval("document.getElementById('visual-analysis').hidden"),true);assert.equal(await p.eval("document.getElementById('annotate-panel').hidden"),false);await click(p,'tab-skin');assert.equal(await p.eval("document.getElementById('hb-workflow').hidden"),true);await open(p);
  assert.equal(await p.eval("document.getElementById('vision-data-policy').hidden"),false);
  assert.equal(calls,0);assert.equal(await p.eval("document.getElementById('send-vision').disabled"),true);
  await click(p,'close-vision');assert.equal(calls,0);console.log('PASS no remote analysis before explicit consent');
@@ -43,7 +43,7 @@ try{
  await click(p,'guide-button');assert.equal(await p.eval("document.getElementById('guide-skin').hidden"),false);await p.eval("document.querySelector('[data-close-region-help]').click()");console.log('PASS mode tabs preserve photo and show the relevant guide');
  mode='success';await open(p);await consent(p);await wait(p,"!document.getElementById('vision-results').hidden");
  for(const width of [320,390,430,768]){
-  const m=await browser.newPage({width,height:width<600?844:1000,mobile:width<600,reducedMotion:true});await m.goto(base);await upload(m);
+  const m=await browser.newPage({width,height:width<600?844:1000,mobile:width<600,reducedMotion:true});await m.goto(base);await click(m,'tab-skin');await upload(m);
   if(width<600){
    assert.equal(await m.eval(()=>{const list=document.querySelector('.review-categories').getBoundingClientRect(),action=document.querySelector('.review-action').getBoundingClientRect();return action.top>=list.bottom;}),true);
    await m.eval('scrollTo(0,0)');await m.screenshot({path:'web/reports/browser/mobile-skin-preview.jpg'});

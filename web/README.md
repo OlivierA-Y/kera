@@ -191,3 +191,8 @@ The cross-audience browser regression is `web/tests/reference-controls-browser.m
 
 
 Navigation is shared across all three audiences: one **Health checker** sidebar action opens the checker, with **Hemoglobin levels** and **Nail Health Analysis** in the horizontal header switch. Demo now saves Hb and analysis results in the local SQLite database under its own stable identity. Reopening Demo reconnects that history, including notes, comparisons, export and deletion. No age, sex or conditions are invented for Demo, and no health background is sent with its general photo analysis. It ignores other profile-selection cookies. The original one-visit entry behavior remains, so a reload returns to sign in and a new Demo entry reconnects its saved history. Photos stay temporary.
+
+
+## Main-branch integration
+
+The profile/history work and shared color-reference checker are merged with the newer main branch. The existing Vercel API adapter, exact HTTPS deployment-origin allowlist, parsed-request-body support and their regression tests are retained. Automatic Git deployments are disabled for main and the former review branch because the account frontend requires the local persistent SQLite server; pushing code does not deploy a working hosted account service. The earlier deployed application remains unchanged. Run this version locally with Node 22.13 or newer and restore the supplied fictional dataset through Restore backup to reproduce the video workspace on another computer.

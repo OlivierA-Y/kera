@@ -30,3 +30,6 @@ references/Usage Notes.ipynb
 # Local profile/history database and backups
 web/.data/
 web/reports/accounts/
+
+# Local Vercel project metadata
+.vercel/

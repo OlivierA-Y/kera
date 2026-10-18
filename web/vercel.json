@@ -47,7 +47,8 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "codex/accounts-onboarding-history": false
+      "codex/accounts-onboarding-history": false,
+      "main": false
     }
   }
 }

@@ -40,13 +40,9 @@ test('Named possible explanations include overlapping matches without a confirme
   }
 });
 
-test('Live Hb results use raw output and show the deployed network error figures', () => {
-  const app = readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
+test('Live Hb results retain the deployed network error figures alongside experimental preprocessing', () => {
   const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8');
   const report = readFileSync(new URL('../../reports/RESULTS.md', import.meta.url), 'utf8');
-  assert.doesNotMatch(app, /readCameraAdjustment|adjustHemoglobin|adjustmentEnabled/);
-  assert.doesNotMatch(html, /id="camera-adjustment"/);
-  assert.match(app, /prediction-value'\)\.textContent=result\.hemoglobin_g_per_l\.toFixed/);
   for (const metric of ['15.96', '21.29', '16.26']) {
     assert.ok(html.includes(metric)); assert.ok(report.includes(metric));
   }

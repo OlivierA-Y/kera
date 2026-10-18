@@ -13,7 +13,7 @@ async function mark(page,kind,box){await page.eval(({kind,box})=>{document.query
 try{
   const page=await browser.newPage({width:1440,height:1000});const requests=[];
   await page.send('Network.enable');browser.on(page.sessionId,'Network.requestWillBeSent',e=>requests.push({url:e.request.url,method:e.request.method,postData:e.request.postData}));
-  await page.goto('http://127.0.0.1:4173');await click(page,'#tab-hb');await wait(page,"document.getElementById('model-note').textContent.includes('Runs on your device')");
+  await page.goto('http://127.0.0.1:4173');await click(page,'#tab-hb');await page.eval(()=>{const mode=document.getElementById('sticker-mode');mode.value='plain';mode.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('camera-adjustment').checked=false;document.getElementById('camera-adjustment').dispatchEvent(new Event('change',{bubbles:true}));});await wait(page,"document.getElementById('model-note').textContent.includes('runs on your device')");
   assert.equal(await page.eval("document.getElementById('capture-button').disabled"),true);record('Initial app loads the real model; capture disabled until live');
   await page.screenshot({path:'web/reports/browser/desktop-initial.jpg'});
   await click(page,'#start-camera');await wait(page,"!document.getElementById('video').hidden && document.getElementById('video').videoWidth>0");
@@ -40,7 +40,7 @@ try{
   assert.equal(await page.eval("document.getElementById('average-caption').textContent"),'Based on 2 readings.');
   const averageRequests=requests.filter(x=>x.method==='POST'&&new URL(x.url).pathname==='/api/scans/average');assert.equal(averageRequests.length,1);
   const {readings}=JSON.parse(averageRequests[0].postData);assert.equal(readings.length,2);assert.notEqual(readings[0].id,readings[1].id);
-  assert.equal(value,Number(((readings[0].hemoglobin_g_per_l+readings[1].hemoglobin_g_per_l)/2).toFixed(1)));record('End scan now returns one average from both real frozen-MLP readings');
+  assert.equal(value,Number(((readings[0].hemoglobin_g_per_l+readings[1].hemoglobin_g_per_l)/2).toFixed(1)));record('Finish & see result returns one average from both real frozen-MLP readings');
   await sleep(450);await page.screenshot({path:'web/reports/browser/desktop-result.jpg'});
   await click(page,'#new-scan');await upload(page);await mark(page,'nail',[123,429,183,483]);await mark(page,'skin',[148,556,200,614]);await mark(page,'white',[123,429,183,483]);await click(page,'#predict-button');await wait(page,"!document.getElementById('error').hidden");
   assert.ok(await page.eval("document.getElementById('error').textContent.includes('overlapping')"));assert.equal(await page.eval("document.getElementById('result-panel').hidden"),true);record('Starting a new scan resets the session; overlapping annotations block submission');
@@ -55,7 +55,7 @@ try{
   record('Only numerical readings and quality warnings reach the local averaging endpoint; no images or external inference requests occur');
   assert.deepEqual(page.consoleErrors,[]);record('No browser JavaScript exceptions');
   for(const width of [768,390]){
-    const mobile=await browser.newPage({width,height:1000,mobile:width<600,reducedMotion:true});await mobile.goto('http://127.0.0.1:4173');await click(mobile,'#tab-hb');await wait(mobile,"document.getElementById('model-note').textContent.includes('Runs on your device')");
+    const mobile=await browser.newPage({width,height:1000,mobile:width<600,reducedMotion:true});await mobile.goto('http://127.0.0.1:4173');await click(mobile,'#tab-hb');await mobile.eval(()=>{const mode=document.getElementById('sticker-mode');mode.value='plain';mode.dispatchEvent(new Event('change',{bubbles:true}));document.getElementById('camera-adjustment').checked=false;document.getElementById('camera-adjustment').dispatchEvent(new Event('change',{bubbles:true}));});await wait(mobile,"document.getElementById('model-note').textContent.includes('runs on your device')");
     assert.ok(await mobile.eval('document.documentElement.scrollWidth <= window.innerWidth'));await mobile.screenshot({path:`web/reports/browser/${width}-initial.jpg`,fullPage:true});
     if(width===390){await upload(mobile);await mark(mobile,'nail',[123,429,183,483]);await mark(mobile,'skin',[148,556,200,614]);await mark(mobile,'white',[350,300,400,350]);await click(mobile,'#predict-button');await wait(mobile,"!document.getElementById('result-panel').hidden");await sleep(450);await mobile.screenshot({path:'web/reports/browser/mobile-result.jpg',fullPage:true});}
     assert.deepEqual(mobile.consoleErrors,[]);record(`Responsive ${width}px layout without overflow or exceptions`);await mobile.close();

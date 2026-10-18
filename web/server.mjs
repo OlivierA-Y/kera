@@ -21,6 +21,14 @@ function json(res, status, value) {
   res.writeHead(status, { 'Content-Type':'application/json', 'Cache-Control':'no-store' });res.end(JSON.stringify(value));
 }
 async function readJson(req, { maxBody=MAX_BODY, tooLarge='The photos are too large. Use smaller images.', invalidJson='The image request could not be read.' }={}) {
+  // Vercel may provide a parsed body; local IncomingMessage requests stay streamed.
+  if(req.body!==undefined){
+    let bytes;
+    try{bytes=Buffer.isBuffer(req.body)?req.body:Buffer.from(typeof req.body==='string'?req.body:JSON.stringify(req.body));}
+    catch{throw new VisionError(400,'invalid_json',invalidJson);}
+    if(bytes.length>maxBody)throw new VisionError(413,'too_large',tooLarge);
+    try{return JSON.parse(bytes.toString('utf8'));}catch{throw new VisionError(400,'invalid_json',invalidJson);}
+  }
   let size=0;const buffers=[];
   for await (const buffer of req.iterator({destroyOnReturn:false})) {
     size+=buffer.length;
@@ -45,7 +53,12 @@ export function validateInput(body) {
   if (!seen.has('top')) throw new VisionError(400,'top_required','Include a top view of the nail.');
   return body.photos.map(({view,data_url})=>({view,data_url}));
 }
-export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=process.env.OPENROUTER_VISION_MODEL||DEFAULT_MODEL, provider=analyzePhotos, allowDataCollection=process.env.OPENROUTER_ALLOW_DATA_COLLECTION==='true', maxRequests=10, timeoutMs=45000, contextProvider=analyzeHbContext, demoProvider, dataPath=process.env.KERA_DATA_PATH||fileURLToPath(new URL('./.data/kera.sqlite',import.meta.url)) }={}) {
+export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=process.env.OPENROUTER_VISION_MODEL||DEFAULT_MODEL, provider=analyzePhotos, allowDataCollection=process.env.OPENROUTER_ALLOW_DATA_COLLECTION==='true', maxRequests=10, timeoutMs=45000, allowedOrigins=[], contextProvider=analyzeHbContext, demoProvider, dataPath=process.env.KERA_DATA_PATH||fileURLToPath(new URL('./.data/kera.sqlite',import.meta.url)) }={}) {
+  const trustedOrigins=new Map(allowedOrigins.map(origin=>{
+    const parsed=new URL(origin);
+    if(parsed.protocol!=='https:'||parsed.origin!==origin)throw new Error('Deployment origins must be exact HTTPS origins.');
+    return [parsed.host,origin];
+  }));
   let active=0;let recent=[];let records=null;let demo=null,demoReady=null;
   function getDemo(){if(!demoReady){demo=createOriginalDemo({apiKey,model,allowDataCollection,maxRequests,timeoutMs,...(demoProvider?{provider:demoProvider}:{})});demoReady=new Promise((resolve,reject)=>{demo.once('error',reject);demo.listen(0,'127.0.0.1',()=>resolve(demo));});}return demoReady;}
   const server=createServer(async(req,res)=>{
@@ -57,11 +70,14 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
     try {
       // Reject DNS rebinding and cross-origin access to this credential-bearing local server.
       const host=req.headers.host;
-      if (!host || !new Set([`localhost:${server.address().port}`,`127.0.0.1:${server.address().port}`,`[::1]:${server.address().port}`]).has(host)) throw new VisionError(403,'invalid_host','This local server accepts localhost requests only.');
-      const url=new URL(req.url,`http://${host}`);
+      const address=server.address();
+      const localHosts=address?new Set([`localhost:${address.port}`,`127.0.0.1:${address.port}`,`[::1]:${address.port}`]):new Set();
+      if (!host || (!localHosts.has(host)&&!trustedOrigins.has(host))) throw new VisionError(403,'invalid_host','This server does not accept this host.');
+      const origin=trustedOrigins.get(host)||`http://${host}`;
+      const url=new URL(req.url,origin);
       if(url.pathname==='/demo'){res.writeHead(302,{Location:'/demo/'});res.end();return;}
       if(url.pathname.startsWith('/demo/')){
-        if(req.headers.origin && req.headers.origin!==`http://${host}` || req.headers['sec-fetch-site'] && !['same-origin','none'].includes(req.headers['sec-fetch-site']))throw new VisionError(403,'cross_origin','Open Demo from the Kera app.');
+        if(req.headers.origin && req.headers.origin!==origin || req.headers['sec-fetch-site'] && !['same-origin','none'].includes(req.headers['sec-fetch-site']))throw new VisionError(403,'cross_origin','Open Demo from the Kera app.');
         if(url.pathname==='/demo/api/vision/status'&&req.method==='GET')return json(res,200,{configured:Boolean(apiKey),provider:'OpenRouter',model:apiKey?model:null,dataCollection:allowDataCollection?'allowed':'denied',privacy:'Photos are sent only after permission. Completed results are saved to Demo history on this local server, without photos.'});
         // All audiences share both reference workflows. Guest APIs remain isolated.
         if(!url.pathname.startsWith('/demo/api/')){
@@ -85,7 +101,7 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
       }
       if (url.pathname==='/api/scans/average') {
         if (req.method!=='POST') throw new VisionError(405,'method_not_allowed','Use POST to average scans.');
-        if (req.headers.origin!==`http://${host}` || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Scan averaging must start from this app.');
+        if (req.headers.origin!==origin || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Scan averaging must start from this app.');
         if (req.headers['content-type']?.split(';')[0].trim()!=='application/json') throw new VisionError(415,'invalid_type','Use a JSON scan request.');
         if (Number(req.headers['content-length']||0)>MAX_AVERAGE_BODY) throw new VisionError(413,'too_large','The scan request is too large. Send at most 100 short readings.');
         const body=await readJson(req,{maxBody:MAX_AVERAGE_BODY,tooLarge:'The scan request is too large. Send at most 100 short readings.',invalidJson:'The scan request could not be read.'});
@@ -94,7 +110,7 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
       if (url.pathname==='/api/vision/status' && req.method==='GET') return json(res,200,{configured:Boolean(apiKey),provider:'OpenRouter',model:apiKey?model:null,dataCollection:allowDataCollection?'allowed':'denied',privacy:'Photos are sent through OpenRouter to its selected model provider only after explicit permission. Kera saves completed structured results to the selected profile, without saving photos.'});
       if (url.pathname==='/api/vision/analyze') {
         if (req.method!=='POST') throw new VisionError(405,'method_not_allowed','Use POST for visual analysis.');
-        if (req.headers.origin!==`http://${host}` || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Visual analysis must start from this app.');
+        if (req.headers.origin!==origin || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Visual analysis must start from this app.');
         if (req.headers['content-type']?.split(';')[0].trim()!=='application/json') throw new VisionError(415,'invalid_type','Use a JSON image request.');
         if (Number(req.headers['content-length']||0)>MAX_BODY) throw new VisionError(413,'too_large','The photos are too large.');
         const body=await readJson(req);const photos=validateInput(body);
@@ -120,7 +136,7 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
       }
       if(url.pathname==='/api/context/hb'){
         if(req.method!=='POST')throw new VisionError(405,'method_not_allowed','Use POST for background insights.');
-        if(req.headers.origin!==`http://${host}` || req.headers['sec-fetch-site']&&req.headers['sec-fetch-site']!=='same-origin')throw new VisionError(403,'cross_origin','Generate insights from Kera.');
+        if(req.headers.origin!==origin || req.headers['sec-fetch-site']&&req.headers['sec-fetch-site']!=='same-origin')throw new VisionError(403,'cross_origin','Generate insights from Kera.');
         if(req.headers['content-type']?.split(';')[0].trim()!=='application/json')throw new VisionError(415,'invalid_type','Use JSON.');
         const body=await readJson(req,{maxBody:12000,tooLarge:'The background is too long.',invalidJson:'The background could not be read.'});
         if(body?.consent!==true)throw new VisionError(400,'consent_required','Confirm sharing the displayed background.');
@@ -132,10 +148,10 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
         try{const insights=validateInsights(await contextProvider(profileContext,body.hemoglobin_g_per_l,{apiKey,model,allowDataCollection,signal:controller.signal}));if(controller.signal.aborted)throw new VisionError(504,'provider_timeout','Background insights timed out.');if(!res.destroyed)json(res,200,{insights,provider:'OpenRouter',model});}finally{active--;clearTimeout(timer);res.off('close',disconnected);}return;
       }
       if (/^\/api\/(demo-workspace|accounts|account|profiles|results|organizations|invitations|invitation|memberships|backup|restore)(\/|$)/.test(url.pathname)) {
-        if (req.headers.origin && req.headers.origin!==`http://${host}` || req.headers['sec-fetch-site'] && !['same-origin','none'].includes(req.headers['sec-fetch-site'])) throw new VisionError(403,'cross_origin','Open records from the Kera app.');
+        if (req.headers.origin && req.headers.origin!==origin || req.headers['sec-fetch-site'] && !['same-origin','none'].includes(req.headers['sec-fetch-site'])) throw new VisionError(403,'cross_origin','Open records from the Kera app.');
         let body;
         if (!['GET','HEAD'].includes(req.method)) {
-          if (req.headers.origin!==`http://${host}`) throw new VisionError(403,'cross_origin','Record changes must start from the Kera app.');
+          if (req.headers.origin!==origin) throw new VisionError(403,'cross_origin','Record changes must start from the Kera app.');
           if (req.method!=='DELETE' && req.headers['content-type']?.split(';')[0].trim()!=='application/json') throw new VisionError(415,'invalid_type','Use a JSON record request.');
           if (req.method!=='DELETE') body=await readJson(req,{maxBody:url.pathname==='/api/restore'?8_000_000:150_000,tooLarge:'The record or backup is too large.',invalidJson:'The record could not be read.'});
         }
