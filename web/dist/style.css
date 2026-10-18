@@ -49,6 +49,23 @@
 .region-help-footer{padding:18px 28px 24px;flex-shrink:0}
 .region-help-footer .button{width:100%;min-height:52px;font-size:18px}
 @media(max-width:480px){.region-help-header{padding:18px 20px 14px}.region-help-header h2{font-size:25px}.region-help-body{padding:0 20px}.region-help-footer{padding:16px 20px 20px}.region-help-choices label{min-width:0;flex-basis:100%}}
+
+/* Keep the session decisions readable while photos are processed in the background. */
+.scan-session{margin:0 0 26px}
+.scan-session p{font-size:17px;line-height:1.5;margin:0 0 9px}
+.scan-session .session-count{font-size:21px;font-weight:700}
+#session-failures{margin:14px 0 0;padding-left:22px;color:var(--error);font-size:16px;line-height:1.5}
+#session-failures li{margin-bottom:10px}
+.session-actions{margin-top:24px}
+.other-hand-tip,.averaging-note,.session-action-note,.average-caption{font-size:16px;line-height:1.5;margin:0 0 14px}
+.averaging-note{color:var(--muted)}
+.session-action-note{margin-top:20px}
+.session-buttons{display:flex;flex-direction:column;gap:12px}
+.session-buttons .button{width:100%;min-height:54px;font-size:18px}
+.secondary-button{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+.secondary-button:hover:not(:disabled){background:var(--surface)}
+.secondary-button:disabled{border-color:var(--surface)}
+.average-caption{font-weight:700;margin-bottom:22px}
 .visual-finding .finding-guidance{margin-top:12px;font-size:15px;line-height:1.5;color:var(--ink)}
 
 /* Camera-first workspace, shared across desktop and mobile. */

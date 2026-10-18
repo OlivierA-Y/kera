@@ -12,7 +12,7 @@ async function upload(page){const {root}=await page.send('DOM.getDocument');cons
 async function mark(page,kind,box){await page.eval(({kind,box})=>{document.querySelector(`[data-region="${kind}"]`).click();const [top,left,bottom,right]=box;for(const [field,value] of Object.entries({top,left,width:right-left,height:bottom-top}))document.getElementById('coord-'+field).value=value;document.getElementById('coordinate-form').requestSubmit();},{kind,box});}
 try{
   const page=await browser.newPage({width:1440,height:1000});const requests=[];
-  await page.send('Network.enable');browser.on(page.sessionId,'Network.requestWillBeSent',e=>requests.push({url:e.request.url,method:e.request.method}));
+  await page.send('Network.enable');browser.on(page.sessionId,'Network.requestWillBeSent',e=>requests.push({url:e.request.url,method:e.request.method,postData:e.request.postData}));
   await page.goto('http://127.0.0.1:4173');await click(page,'#tab-hb');await wait(page,"document.getElementById('model-note').textContent.includes('Runs on your device')");
   assert.equal(await page.eval("document.getElementById('capture-button').disabled"),true);record('Initial app loads the real model; capture disabled until live');
   await page.screenshot({path:'web/reports/browser/desktop-initial.jpg'});
@@ -29,13 +29,30 @@ try{
   await upload(page);await mark(page,'nail',[123,429,183,483]);await mark(page,'skin',[148,556,200,614]);await mark(page,'white',[350,300,400,350]);
   assert.equal(await page.eval("document.getElementById('predict-button').disabled"),false);record('Upload and keyboard-accessible coordinates mark all three regions');
   await page.screenshot({path:'web/reports/browser/desktop-marked.jpg'});
+  await click(page,'#continue-scan');await wait(page,"document.getElementById('photo').hidden && document.getElementById('session-count').textContent==='1 photo added'");
+  assert.equal(await page.eval("document.getElementById('result-panel').hidden"),true);
+  assert.equal(await page.eval("document.getElementById('prediction-value').textContent"),'—');
+  assert.equal(await page.eval("document.querySelectorAll('[data-region].is-marked').length"),0);
+  assert.equal(requests.filter(x=>x.method==='POST').length,0);record('Continue scanning adds the first photo, clears its regions and withholds the result');
+  await upload(page);await mark(page,'nail',[123,429,183,483]);await mark(page,'skin',[148,556,200,614]);await mark(page,'white',[350,300,400,350]);
   await click(page,'#predict-button');await wait(page,"!document.getElementById('result-panel').hidden");
-  const value=Number(await page.eval("document.getElementById('prediction-value').textContent"));assert.ok(Number.isFinite(value)&&value>0);record('A real uploaded training image runs the frozen MLP and produces a g/L estimate');
+  const value=Number(await page.eval("document.getElementById('prediction-value').textContent"));assert.ok(Number.isFinite(value)&&value>0);
+  assert.equal(await page.eval("document.getElementById('average-caption').textContent"),'Based on 2 readings.');
+  const averageRequests=requests.filter(x=>x.method==='POST'&&new URL(x.url).pathname==='/api/scans/average');assert.equal(averageRequests.length,1);
+  const {readings}=JSON.parse(averageRequests[0].postData);assert.equal(readings.length,2);assert.notEqual(readings[0].id,readings[1].id);
+  assert.equal(value,Number(((readings[0].hemoglobin_g_per_l+readings[1].hemoglobin_g_per_l)/2).toFixed(1)));record('End scan now returns one average from both real frozen-MLP readings');
   await sleep(450);await page.screenshot({path:'web/reports/browser/desktop-result.jpg'});
-  await click(page,'#edit-regions');await mark(page,'white',[123,429,183,483]);await click(page,'#predict-button');await wait(page,"!document.getElementById('error').hidden");
-  assert.ok(await page.eval("document.getElementById('error').textContent.includes('non-overlapping')"));assert.equal(await page.eval("document.getElementById('result-panel').hidden"),true);record('Invalid overlapping annotations block a new prediction');
+  await click(page,'#new-scan');await upload(page);await mark(page,'nail',[123,429,183,483]);await mark(page,'skin',[148,556,200,614]);await mark(page,'white',[123,429,183,483]);await click(page,'#predict-button');await wait(page,"!document.getElementById('error').hidden");
+  assert.ok(await page.eval("document.getElementById('error').textContent.includes('overlapping')"));assert.equal(await page.eval("document.getElementById('result-panel').hidden"),true);record('Starting a new scan resets the session; overlapping annotations block submission');
   await click(page,'#about-button');assert.equal(await page.eval("document.getElementById('model-dialog').open"),true);await click(page,'.close-dialog');record('Model notes open and dismiss');
-  assert.equal(requests.filter(x=>x.method!=='GET').length,0);record('No photo upload or external inference requests occur');
+  const posts=requests.filter(x=>x.method!=='GET');assert.equal(posts.length,1);
+  for(const post of posts){
+    assert.equal(post.method,'POST');assert.equal(post.url,'http://127.0.0.1:4173/api/scans/average');
+    assert.ok(!/data:image|base64/i.test(post.postData));
+    const body=JSON.parse(post.postData);assert.deepEqual(Object.keys(body),['readings']);
+    for(const reading of body.readings){assert.deepEqual(Object.keys(reading).sort(),['hemoglobin_g_per_l','id','warnings']);assert.equal(typeof reading.id,'string');assert.equal(typeof reading.hemoglobin_g_per_l,'number');assert.ok(Number.isFinite(reading.hemoglobin_g_per_l));assert.ok(Array.isArray(reading.warnings)&&reading.warnings.every(warning=>typeof warning==='string'));}
+  }
+  record('Only numerical readings and quality warnings reach the local averaging endpoint; no images or external inference requests occur');
   assert.deepEqual(page.consoleErrors,[]);record('No browser JavaScript exceptions');
   for(const width of [768,390]){
     const mobile=await browser.newPage({width,height:1000,mobile:width<600,reducedMotion:true});await mobile.goto('http://127.0.0.1:4173');await click(mobile,'#tab-hb');await wait(mobile,"document.getElementById('model-note').textContent.includes('Runs on your device')");
