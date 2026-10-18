@@ -58,7 +58,7 @@ function renderAnalysis(){
 }
 function selectAnalysis(next){
   if(next===analysis||finalizing||actionBusy||uploadBusy)return;
-  if(next==='hb')visual.deactivate();
+  visual.deactivate();
   analysis=next;drag=null;
   if(next==='hb'&&hbResultReady){cameraRequest++;stopTracks();setMode('result');}
   else if(next==='skin'&&mode==='result')setMode(snapshot?'photo':'empty');
