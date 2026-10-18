@@ -6,7 +6,7 @@ const video=$('video'), photo=$('photo'), stage=$('viewfinder');
 const context=photo.getContext('2d',{willReadFrequently:true,colorSpace:'srgb'});
 const kinds=['nail','skin','white'];
 const labels={nail:'Middle nail',skin:'Nearby skin',white:'White reference'};
-const prompts={nail:'Draw around the middle fingernail',skin:'Draw around a clear area of nearby skin',white:'Draw around the plain white reference'};
+const prompts={nail:'Draw around the whole middle fingernail',skin:'Draw on skin between the middle finger’s two joints',white:'Draw around the plain white reference'};
 let model=null, stream=null, cameraRequest=0, facing='user', mode='empty', active='nail', boxes={}, drag=null, snapshot=null, lastSource='camera';
 let loadVersion=0;
 const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null});
@@ -171,6 +171,24 @@ $('predict-button').addEventListener('click',async()=>{
   finally{updateRegions();}
 });
 $('edit-regions').addEventListener('click',()=>{setMode('photo');selectRegion('nail');updateRegions();error('');});
+const regionHelp=$('region-help-dialog');
+$('region-help-button').addEventListener('click',()=>{regionHelp.showModal();$('region-help-title').focus();});
+for(const choice of document.querySelectorAll('[name="region-help-setup"]'))choice.addEventListener('change',()=>{
+  show('region-help-dock',choice.value==='dock');show('region-help-phone',choice.value==='phone');
+});
+for(const button of document.querySelectorAll('[data-close-region-help]'))button.addEventListener('click',()=>regionHelp.close());
+regionHelp.addEventListener('keydown',event=>{
+  if(event.key!=='Tab')return;
+  const [first,last]=regionHelp.querySelectorAll('[data-close-region-help]');
+  if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+  else if(event.shiftKey&&(document.activeElement===first||document.activeElement===$('region-help-title'))){event.preventDefault();last.focus();}
+});
+regionHelp.addEventListener('close',()=>$('region-help-button').focus({preventScroll:true}));
+regionHelp.addEventListener('click',event=>{
+  if(event.target!==regionHelp)return;
+  const r=regionHelp.getBoundingClientRect();
+  if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)regionHelp.close();
+});
 for(const id of ['about-button','footer-about'])$(id).addEventListener('click',()=>$('model-dialog').showModal());
 for(const button of document.querySelectorAll('.close-dialog'))button.addEventListener('click',()=>$('model-dialog').close());
 $('model-dialog').addEventListener('click',event=>{if(event.target===$('model-dialog')){const r=$('model-dialog').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('model-dialog').close();}});

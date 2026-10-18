@@ -22,3 +22,30 @@
 .notice,.model-note,.small-note,.footer p,.footer .text-button,.empty-state p,.next-note p{font-size:16px;line-height:1.5;color:var(--ink)}
 .empty-state p{color:var(--stage-muted)}
 .notice{max-width:65ch}.footer p{max-width:44ch}
+
+/* Short photo and region instructions, with large reading and touch targets. */
+.region-heading{display:flex;align-items:center;gap:14px;margin-bottom:26px}
+.scan-details .region-heading h2{flex:1;min-width:0;margin:0}
+.region-help-button{flex-shrink:0;width:48px;height:48px;padding:0;border:2px solid var(--ink);border-radius:50%;background:transparent;font-size:24px;font-weight:700;line-height:1}
+.region-help-button:hover{background:var(--surface)}
+#region-help-dialog{padding:0;max-width:760px;max-height:90svh;overflow:hidden}
+.region-help-shell{display:flex;flex-direction:column;max-height:90svh}
+.region-help-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:24px 28px 18px;flex-shrink:0}
+.region-help-header h2{margin:0;font-size:28px;line-height:1.2;font-weight:400;letter-spacing:-.025em}
+#region-help-title:focus{outline:none}
+.region-help-close{flex-shrink:0;width:48px;height:48px;border:1px solid var(--ink);border-radius:50%;background:transparent;font-size:30px;line-height:1}
+.region-help-close:hover{background:var(--surface)}
+.region-help-body{overflow:auto;min-height:0;padding:0 28px;font-size:18px;line-height:1.55;overscroll-behavior:contain}
+.region-help-body p{font-size:inherit;line-height:inherit;margin:0 0 16px}
+.region-help-body h3{font-size:21px;line-height:1.3;margin:24px 0 14px;font-weight:700}
+.region-help-body ol{margin:0 0 20px;padding-left:28px}
+.region-help-body li{padding-left:5px;margin-bottom:14px}
+.region-help-options{border:0;margin:22px 0 0;padding:0;min-width:0}
+.region-help-options legend{padding:0;margin-bottom:12px;font-size:18px;font-weight:700}
+.region-help-choices{display:flex;gap:12px;flex-wrap:wrap}
+.region-help-choices label{display:flex;align-items:center;gap:10px;padding:12px 14px;min-height:52px;border:2px solid var(--muted);border-radius:4px;cursor:pointer;flex:1;min-width:210px}
+.region-help-choices label:has(input:checked){border-color:var(--ink);background:var(--surface)}
+.region-help-choices input{width:20px;height:20px;margin:0;accent-color:var(--ink);flex-shrink:0}
+.region-help-footer{padding:18px 28px 24px;flex-shrink:0}
+.region-help-footer .button{width:100%;min-height:52px;font-size:18px}
+@media(max-width:480px){.region-help-header{padding:18px 20px 14px}.region-help-header h2{font-size:25px}.region-help-body{padding:0 20px}.region-help-footer{padding:16px 20px 20px}.region-help-choices label{min-width:0;flex-basis:100%}}
