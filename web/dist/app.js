@@ -1,3 +1,4 @@
+import {DEFAULT_STICKER_REFERENCE} from './default-sticker-reference.js';
 import {createCaptureTimer} from './capture-timer.js';
 import {scaleStickerBoxes} from './sticker-detector.js';
 import {PATCHES,readProfile,saveProfile,validateProfile,createProfile,sampleSticker} from './sticker-calibration.js';
@@ -12,7 +13,7 @@ import { createScanProcessor } from './scan-processor.js';
 const $ = id => document.getElementById(id);
 const video=$('video'), photo=$('photo'), stage=$('viewfinder');
 const context=photo.getContext('2d',{willReadFrequently:true,colorSpace:'srgb'});
-let stickerMode='mlh',stickerProfile=readProfile();
+let stickerMode='mlh',stickerProfile=readProfile(DEFAULT_STICKER_REFERENCE);
 let detectionWorker=null,detectionTimer=null,detectionVersion=0,detectionBusy=false;
 let kinds=['nail','skin','white','mlhM','mlhL','mlhH'];
 const labels={nail:'Middle nail',skin:'Nearby skin',white:'White reference',mlhM:'M · Orange/red',mlhL:'L · Blue',mlhH:'H · Yellow'};
@@ -193,7 +194,7 @@ function renderAnalysis(){
   show('box-layer',!skin);show('drawing-prompt',!skin&&mode==='photo');
   $('upload-label').textContent=hasPhoto&&lastSource==='upload'?'Replace photo':'Upload a photo';
   $('workflow-label').textContent=skin?'Skin & nail':'Hemoglobin';
-  $('workflow-step').textContent=skin?(hasPhoto?'02 / Review':'01 / Capture'):mode==='result'?'03 / Estimate':hasPhoto?'02 / Mark regions':'01 / Capture';
+  $('workflow-step').textContent=skin?(hasPhoto?'02 / Review':'Capture'):mode==='result'?'03 / Estimate':hasPhoto?'02 / Mark regions':'Capture';
   $('view-heading').textContent=!skin&&mode==='result'?(hasPhoto?'Last photo':'Scan complete'):hasPhoto?'Your photo':'Your camera';
   $('capture-instruction').textContent=skin?'Bring the affected skin or nail into clear, even light.':stickerMode==='reference'?'Keep the entire MLH sticker in view.':stickerMode==='mlh'?'Keep your middle finger and MLH sticker in view.':'Keep your middle finger and a white reference in view.';
   $('frame-note').textContent=skin?'Keep the affected area in focus.':stickerMode==='reference'?'Reference capture: sticker only.':stickerMode==='mlh'?'Keep nail and all sticker colors in view.':'Keep your whole middle nail and white reference in view.';
@@ -488,7 +489,7 @@ $('predict-button').addEventListener('click',async()=>{
     hbResultReady=true;
     const adjusted=adjustHemoglobin(result.hemoglobin_g_per_l,adjustmentEnabled);
     $('prediction-value').textContent=adjusted.value.toFixed(1);
-    $('result-caption').textContent=stickerMode==='mlh'?'MLH color-corrected average estimate':adjustmentEnabled?'Camera-adjusted average estimate':'Average estimated hemoglobin';
+    $('result-caption').textContent=stickerMode==='mlh'?'Color-corrected average estimate':adjustmentEnabled?'Camera-adjusted average estimate':'Average estimated hemoglobin';
     $('adjustment-caption').textContent=adjustmentEnabled?`Raw model average: ${adjusted.raw.toFixed(1)} g/L.`:'';
     const failed=scans.filter(scan=>scan.state==='failed').length;
     $('average-caption').textContent=`Based on ${result.scan_count} ${result.scan_count===1?'reading':'readings'}.${failed?` ${failed} ${failed===1?'photo could':'photos could'} not be read and ${failed===1?'was':'were'} left out.`:''}`;
