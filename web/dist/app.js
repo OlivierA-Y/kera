@@ -1,3 +1,4 @@
+import { readCameraAdjustment, saveCameraAdjustment, adjustHemoglobin } from './camera-adjustment.js';
 import { createTorchController } from './torch.js';
 import { initializeTouchRegions } from './touch-regions.js';
 import { initializeVisualAnalysis } from './visual.js';
@@ -17,6 +18,9 @@ const MAX_PENDING_SCANS=3,MAX_PENDING_BYTES=128*1024*1024;
 let scans=[],processor=createScanProcessor(),sessionVersion=0,currentScanId=null,finalizing=false,actionBusy=false,uploadBusy=false,averageController=null;
 const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null});
 const touchEditor=initializeTouchRegions({getState:()=>({source:photo,boxes,active,editable:analysis==='hb'&&mode==='photo'&&Boolean(snapshot)&&!currentScanId&&!finalizing&&!actionBusy&&!uploadBusy}),onSave:(kind,box)=>{selectRegion(kind);saveRegion(box);}});
+let cameraAdjustment=readCameraAdjustment();
+$('camera-adjustment').checked=cameraAdjustment;
+$('camera-adjustment').addEventListener('change',()=>{cameraAdjustment=$('camera-adjustment').checked;saveCameraAdjustment(cameraAdjustment);});
 const torch=createTorchController({onChange:renderTorch});
 function renderTorch(state=torch.state){
   const live=mode==='live',button=$('torch-button');
@@ -156,7 +160,7 @@ async function retake(){
 $('retake-button').addEventListener('click',retake);
 $('new-scan').addEventListener('click',async()=>{
   hbResultReady=false;sessionVersion++;averageController?.abort();averageController=null;processor.close();processor=createScanProcessor();scans=[];currentScanId=null;
-  $('prediction-value').textContent='—';$('average-caption').textContent='';$('quality-warnings').replaceChildren();show('quality-warnings',false);
+  $('prediction-value').textContent='—';$('adjustment-caption').textContent='';$('average-caption').textContent='';$('quality-warnings').replaceChildren();show('quality-warnings',false);
   setMode('empty');await retake();
 });
 function displayGeometry(){
@@ -243,6 +247,7 @@ function renderSession(){
   for(const scan of failed){const li=document.createElement('li');li.textContent=`Photo ${scan.number} was not included: ${scan.message}`;failures.append(li);}
   show('session-failures',failed.length>0);
   const blocked=finalizing||actionBusy||uploadBusy;
+  $('camera-adjustment').disabled=blocked||hbResultReady;
   $('touch-editor-button').disabled=blocked||Boolean(currentScanId)||!snapshot;
   const dockVisible=scanDockMedia.matches&&hb&&mode!=='result'&&(regionsMarked||scans.length>0);
   show('mobile-scan-dock',dockVisible);document.body.classList.toggle('has-scan-dock',Boolean(dockVisible));
@@ -300,7 +305,7 @@ $('predict-button').addEventListener('click',async()=>{
   if(analysis!=='hb'||finalizing||actionBusy)return;
   error('');
   if(!currentReady()&&!scans.some(scan=>scan.state==='pending'||scan.state==='complete'))return;
-  const version=sessionVersion;finalizing=true;loadVersion++;cameraRequest++;stopTracks();
+  const version=sessionVersion,adjustmentEnabled=cameraAdjustment;finalizing=true;loadVersion++;cameraRequest++;stopTracks();
   if(mode==='live')setMode('empty');renderSession();
   try{
     if(currentReady()&&activeScanCount()<MAX_SCANS){
@@ -324,7 +329,10 @@ $('predict-button').addEventListener('click',async()=>{
     if(!result||!Number.isFinite(result.hemoglobin_g_per_l)||result.scan_count!==readings.length||!Array.isArray(result.warnings))throw new Error('The average response could not be read. Choose End scan now to try again.');
     if(version!==sessionVersion)return;
     hbResultReady=true;
-    $('prediction-value').textContent=result.hemoglobin_g_per_l.toFixed(1);
+    const adjusted=adjustHemoglobin(result.hemoglobin_g_per_l,adjustmentEnabled);
+    $('prediction-value').textContent=adjusted.value.toFixed(1);
+    $('result-caption').textContent=adjustmentEnabled?'Camera-adjusted average estimate':'Average estimated hemoglobin';
+    $('adjustment-caption').textContent=adjustmentEnabled?`Raw model average: ${adjusted.raw.toFixed(1)} g/L.`:'';
     const failed=scans.filter(scan=>scan.state==='failed').length;
     $('average-caption').textContent=`Based on ${result.scan_count} ${result.scan_count===1?'reading':'readings'}.${failed?` ${failed} ${failed===1?'photo could':'photos could'} not be read and ${failed===1?'was':'were'} left out.`:''}`;
     const warningArea=$('quality-warnings');warningArea.replaceChildren();
