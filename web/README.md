@@ -14,7 +14,7 @@ Open `http://localhost:4173`. A webcam requires browser permission and a secure 
 
 1. Select **Hemoglobin**, turn on the camera and capture a photo with the middle fingernail, nearby skin, and plain white paper in the same light.
 2. Mark the whole middle nail, an intact skin area on the same finger, and a white-reference area. Draw directly on the photo or enter pixel coordinates in the accessible form. Each completed region advances the selection automatically; select it again to redraw.
-3. Choose **Continue scanning** to add this photo and take or upload another. Each photo needs its own three region annotations. Processing runs in a Web Worker, so the interface stays available before earlier readings finish.
+3. Choose **Next scan** to add this photo and take or upload another. Each photo needs its own three region annotations. Processing runs in a Web Worker, so the interface stays available before earlier readings finish.
 4. Choose **End scan now** to add the current marked photo, wait for pending readings, and display one average in g/L. You can also end while preparing the next photo; only photos already added are used. Individual readings stay hidden. The final result shows the number of included readings and every quality warning. Unreadable photos are explicitly identified and left out. **Start a new scan** clears the session.
 
 ## Averaged scan sessions
@@ -25,7 +25,15 @@ Sessions support up to 100 included readings and are held only in page memory; r
 
 The interface suggests trying the middle finger on the other hand while keeping the same camera, lighting and distance. Repeated readings may reduce random variation, but improved accuracy for this model and multi-hand setup has not been established. Averaging does not remove systematic bias, make poor photos reliable, diagnose anemia, or replace clinical blood tests.
 
+The live camera prefers the rear lens and requests its flashlight on by default when torch capability is available. Use **Flash: on/off** to toggle it; the choice is remembered for subsequent captures in the current page session. The UI uses the track’s reported state, and explicitly says when the browser cannot report it. Unsupported cameras show **Flash unavailable**, while capture/upload remain usable. Changing the light preserves the camera’s existing constraints. Capture waits during a flashlight change; Stop camera remains available. Stopping/capturing releases the track and its light. Physical iPhone flashlight hardware was not tested.
+
 The camera stops when you capture, stop the feed, end the session, leave the page, or replace it with an uploaded image. Retake replaces the current photo and its regions; previously added readings remain in the session. Photos are kept only in page memory; the browser/OS may have their own lifecycle behavior. No history, accounts, analytics, or photo storage is added by this app.
+
+## Marking on a small touchscreen
+
+In Hemoglobin mode, capture or upload a photo and choose **Open touch editor**. Tap two opposite corners to create a box, or drag to draw it. Use the zoom slider/buttons and **Move photo** to inspect small areas. **Fine adjustment** moves or resizes the draft with large buttons. **Save box & continue** saves the selected region and advances to the next; saving all three returns to the main photo. Closing the editor discards only the unsaved draft. Display zoom does not resize the source image or change the model's pixel coordinates. The existing direct-drag and coordinate-entry methods remain available.
+
+On phones, **Next scan** and **End scan now** appear in a bottom action bar once a photo has all three regions marked, or a scan session has readings underway. The same original buttons are moved into a direct child of the document body, avoiding transformed containers that can break fixed positioning. Bottom clearance tracks the bar's actual height. At tablet/desktop widths the buttons return to their original workflow location.
 
 ## Optional visual observations
 
@@ -59,6 +67,8 @@ node web/tests/ml.test.mjs
 The parity fixtures use ten training patients, with no labels or patient identifiers. Model export does not read or evaluate the held-out test set.
 
 ## Verification
+
+Seven torch-controller tests cover default-on behavior, toggling and preference retention, unsupported/sequence capabilities, missing state reports, failures, camera-stop races and browser API exceptions. These use simulated tracks; physical flashlight hardware still needs device testing.
 
 ```bash
 npm --prefix web test
