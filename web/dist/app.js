@@ -8,7 +8,7 @@ const kinds=['nail','skin','white'];
 const labels={nail:'Middle nail',skin:'Nearby skin',white:'White reference'};
 const prompts={nail:'Draw around the whole middle fingernail',skin:'Draw on skin between the middle finger’s two joints',white:'Draw around the plain white reference'};
 let model=null, stream=null, cameraRequest=0, facing='user', mode='empty', active='nail', boxes={}, drag=null, snapshot=null, lastSource='camera';
-let loadVersion=0;
+let loadVersion=0, analysis='skin';
 const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null});
 function photoNotice(message){notice(message+' Hemoglobin estimation stays local; optional visual analysis requires permission to send photos.');}
 function show(id,yes){$(id).hidden=!yes;}
@@ -20,7 +20,7 @@ function stopCamera(){cameraRequest++;stopTracks();if(mode==='live')setMode('emp
 function setMode(next){
   mode=next;
   show('empty-state',next==='empty');show('video',next==='live');show('photo',next==='photo'||next==='result');
-  show('frame-note',next==='live');show('drawing-prompt',next==='photo');
+  show('frame-note',next==='live');show('drawing-prompt',next==='photo'&&analysis==='hb');
   show('prepare-panel',next==='empty'||next==='live');show('annotate-panel',next==='photo');show('result-panel',next==='result');
   show('capture-button',next==='empty'||next==='live');show('retake-button',next==='photo'||next==='result');
   show('switch-camera',next==='live');show('stop-camera',next==='live');
@@ -29,7 +29,39 @@ function setMode(next){
   if(next==='photo'||next==='result')cameraStatus('Photo captured');
   if(next==='live')cameraStatus('Live view',true);
   $('view-heading').textContent=next==='result'?'Your photo':'Your scan';
-  photo.style.cursor=next==='photo'?'crosshair':'default';
+  photo.style.cursor=next==='photo'&&analysis==='hb'?'crosshair':'default';
+  renderAnalysis();
+}
+function renderAnalysis(){
+  const skin=analysis==='skin',hasPhoto=Boolean(snapshot);
+  document.body.dataset.analysis=analysis;
+  show('hb-workflow',!skin);show('visual-analysis',skin);
+  show('box-layer',!skin);show('drawing-prompt',!skin&&mode==='photo');
+  show('add-angle',skin&&hasPhoto);
+  $('workflow-label').textContent=skin?'Skin & nail':'Hemoglobin';
+  $('workflow-step').textContent=hasPhoto?(skin?'02 / Review':mode==='result'?'03 / Estimate':'02 / Mark regions'):'01 / Capture';
+  $('view-heading').textContent=hasPhoto?'Your photo':'Your camera';
+  $('capture-instruction').textContent=skin?'Bring the affected skin or nail into clear, even light.':'Keep your middle finger and a white reference in view.';
+  $('frame-note').textContent=skin?'Keep the affected area in focus.':'Keep your whole middle nail and white reference in view.';
+  $('skin-instruction').textContent=hasPhoto?'Visible changes to discuss with a clinician.':'Capture a close-up of the area you want to review.';
+  photo.setAttribute('aria-label',skin?'Captured skin or nail photo.':'Captured photo. Mark regions using the region controls, or enter coordinates.');
+  photo.style.cursor=!skin&&mode==='photo'?'crosshair':'default';
+  for(const [id,value] of [['tab-hb','hb'],['tab-skin','skin']]){
+    $(id).setAttribute('aria-selected',String(analysis===value));$(id).tabIndex=analysis===value?0:-1;
+  }
+}
+function selectAnalysis(next){
+  if(next===analysis)return;
+  if(next==='hb')visual.deactivate();
+  analysis=next;drag=null;renderAnalysis();
+  notice(snapshot?(next==='skin'?'Add another angle if useful, then continue to preview and consent.':'Hemoglobin requires the middle nail, nearby skin and white reference in the same photo.'):(next==='skin'?'Take or upload a close-up. Nothing is sent without your permission.':'Capture your middle nail, nearby skin and a white reference. Estimation stays on this device.'));
+}
+for(const [id,value] of [['tab-hb','hb'],['tab-skin','skin']]){
+  $(id).addEventListener('click',()=>selectAnalysis(value));
+  $(id).addEventListener('keydown',event=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    event.preventDefault();const next=event.key==='Home'?'hb':event.key==='End'?'skin':analysis==='skin'?'hb':'skin';selectAnalysis(next);$(next==='skin'?'tab-skin':'tab-hb').focus();
+  });
 }
 async function startCamera(){
   if(!navigator.mediaDevices?.getUserMedia){error('Camera access needs HTTPS or localhost and a supported browser. You can also upload a photo.');return;}
@@ -41,7 +73,7 @@ async function startCamera(){
     stream=media;video.srcObject=media;await video.play();
     if(request!==cameraRequest)return;
     if(!video.videoWidth)await new Promise(resolve=>video.addEventListener('loadedmetadata',resolve,{once:true}));
-    snapshot=null;boxes={};visual.reset(false);$('box-layer').replaceChildren();setMode('live');notice('Keep your whole middle nail, nearby skin, and a white reference in the frame.');
+    snapshot=null;boxes={};visual.reset(false);$('box-layer').replaceChildren();setMode('live');notice(analysis==='skin'?'Keep the affected skin or nail in focus.':'Keep your whole middle nail, nearby skin, and a white reference in the frame.');
     const track=media.getVideoTracks()[0];track.addEventListener('ended',()=>{if(mode==='live'){stopCamera();error('The camera disconnected. Reconnect it or upload a photo.');}});
   }catch(e){
     if(request!==cameraRequest)return;
@@ -58,7 +90,7 @@ function loadSnapshot(source,width,height,origin){
   photo.width=width;photo.height=height;context.drawImage(source,0,0,width,height);
   snapshot=context.getImageData(0,0,width,height);cameraRequest++;stopTracks();
   boxes={};lastSource=origin;visual.reset(true);setMode('photo');selectRegion('nail');error('');
-  photoNotice('Photo captured. Mark the three regions for hemoglobin, or look at visible features below.');
+  notice(analysis==='skin'?'Photo captured. Add another angle if useful, then continue.':'Photo captured. Mark the three regions to estimate hemoglobin on this device.');
 }
 $('start-camera').addEventListener('click',startCamera);
 $('capture-button').addEventListener('click',()=>{
@@ -133,7 +165,7 @@ function saveRegion(box){
 }
 for(const button of document.querySelectorAll('[data-region]'))button.addEventListener('click',()=>selectRegion(button.dataset.region));
 photo.addEventListener('pointerdown',event=>{
-  if(mode!=='photo'||event.button!==0)return;const p=point(event);if(!p)return;
+  if(mode!=='photo'||analysis!=='hb'||event.button!==0)return;const p=point(event);if(!p)return;
   event.preventDefault();drag={start:p,id:event.pointerId};photo.setPointerCapture(event.pointerId);
 });
 photo.addEventListener('pointermove',event=>{
@@ -172,7 +204,8 @@ $('predict-button').addEventListener('click',async()=>{
 });
 $('edit-regions').addEventListener('click',()=>{setMode('photo');selectRegion('nail');updateRegions();error('');});
 const regionHelp=$('region-help-dialog');
-$('region-help-button').addEventListener('click',()=>{regionHelp.showModal();$('region-help-title').focus();});
+let guideTrigger=$('guide-button');
+for(const id of ['region-help-button','guide-button'])$(id).addEventListener('click',()=>{guideTrigger=$(id);show('guide-skin',analysis==='skin');show('guide-hb',analysis==='hb');$('region-help-title').textContent=analysis==='skin'?'Skin & nail guide':'Photo and region guide';regionHelp.showModal();$('region-help-title').focus();});
 for(const choice of document.querySelectorAll('[name="region-help-setup"]'))choice.addEventListener('change',()=>{
   show('region-help-dock',choice.value==='dock');show('region-help-phone',choice.value==='phone');
 });
@@ -183,7 +216,7 @@ regionHelp.addEventListener('keydown',event=>{
   if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
   else if(event.shiftKey&&(document.activeElement===first||document.activeElement===$('region-help-title'))){event.preventDefault();last.focus();}
 });
-regionHelp.addEventListener('close',()=>$('region-help-button').focus({preventScroll:true}));
+regionHelp.addEventListener('close',()=>guideTrigger.focus({preventScroll:true}));
 regionHelp.addEventListener('click',event=>{
   if(event.target!==regionHelp)return;
   const r=regionHelp.getBoundingClientRect();
@@ -197,4 +230,4 @@ async function loadModel(){
   try{const response=await fetch(new URL('./assets/model.json',import.meta.url));if(!response.ok)throw new Error('Model download failed');model=validateModel(await response.json());$('model-note').textContent='Trained neural network. Runs on your device.';updateRegions();}
   catch(e){$('model-note').textContent='The trained model could not load. Reload the page to try again.';error('The trained model could not load. Check your connection and reload the app.');}
 }
-setMode('empty');loadModel();
+setMode('empty');notice('Take or upload a close-up. Nothing is sent without your permission.');loadModel();

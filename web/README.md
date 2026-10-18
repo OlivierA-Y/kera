@@ -12,7 +12,7 @@ npm --prefix web start
 
 Open `http://localhost:4173`. A webcam requires browser permission and a secure context (HTTPS or localhost). Open the site directly in a browser if an embedded preview does not allow camera permission. Uploading a JPEG/PNG/WebP is available as an alternative.
 
-1. Turn on the camera and capture a photo with the middle fingernail, nearby skin, and plain white paper in the same light.
+1. Select **Hemoglobin**, turn on the camera and capture a photo with the middle fingernail, nearby skin, and plain white paper in the same light.
 2. Mark the whole middle nail, an intact skin area on the same finger, and a white-reference area. Draw directly on the photo or enter pixel coordinates in the accessible form. Each completed region advances the selection automatically; select it again to redraw.
 3. Choose **Get estimate**. The result is a continuous hemoglobin estimate in g/L, with photo-quality warnings when applicable.
 
@@ -20,7 +20,7 @@ The camera stops when you capture, stop the feed, leave the page, or replace it 
 
 ## Optional visual observations
 
-After capture or upload, choose **Review skin & nail**. Preview the top photo, optionally add another angle of the same area, and check the consent box before sending. No region annotations or white reference are required for this separate flow. It replaces the previous six morphology categories with four review categories: **skin cancer warning signs**, **fungal infection-like changes**, **eczema-like changes** and **psoriasis-like changes**. Results show **Changes to review** or **Cannot assess from photo**, never a positive or negative diagnosis. A clear close-up of affected skin or nail is required; an additional angle is optional. A generic nail photo cannot screen the rest of a person's skin.
+Select **Skin & nail** (the default mode), then capture or upload a close-up. Add another angle using the photo toolbar if useful. Choose **Continue** to preview the photos and read the data-sharing notice, then check the consent box before sending. No region annotations or white reference are required for this separate flow. It replaces the previous six morphology categories with four review categories: **skin cancer warning signs**, **fungal infection-like changes**, **eczema-like changes** and **psoriasis-like changes**. Results show **Changes to review** or **Cannot assess from photo**, never a positive or negative diagnosis. A clear close-up of affected skin or nail is required; an additional angle is optional. A generic nail photo cannot screen the rest of a person's skin.
 
 The local Node 22+ server uses the OpenRouter Chat Completions API with a strict structured-output schema. Default model: `google/gemini-2.5-flash`; configurable with `OPENROUTER_VISION_MODEL`. To enable it, copy `web/.env.example` to `web/.env`, set `OPENROUTER_API_KEY`, then restart the server. No npm dependencies are needed. Keep the key out of `dist/`; `.env` is ignored by Git. Without a key, the app explains that visual analysis is unavailable and the local hemoglobin estimate still works.
 
@@ -66,6 +66,11 @@ The 18 vision unit/integration tests use a synthetic gray JPEG and an injected p
 `tests/browser.mjs` and `tests/vision-browser.mjs` use the consulted taste skill's zero-dependency Chrome helper. Its import path is specific to this development environment and it needs an installed Chrome plus the original dataset image 1 for the upload smoke test. The production app has no dependency on that helper, Python, PyTorch, or the dataset. The 26 inference/API tests need only Node >=22 and the checked-in fixtures. The vision browser test uses its synthetic fixture and never needs the dataset. Run `node web/tests/vision-browser.mjs` from the repository root.
 
 ## Design
+
+The camera-first layout follows the approved desktop and mobile mockups. Top tabs separate **Hemoglobin** from **Skin & nail** while retaining the current photo. Keyboard arrow keys switch modes. Skin mode has no annotation overlays; Hemoglobin keeps the three-region workflow and saved boxes. Switching away during remote analysis cancels that request and prevents a stale result from appearing. The Guide opens instructions for the selected mode, retaining the contributed Kera Dock and no-dock instructions for hemoglobin.
+
+Desktop places the camera alongside the active workflow. On mobile the photo and workflow stack, with a fixed **Continue** action for skin review and sufficient bottom clearance to scroll every category/result above it. Nothing is sent by Continue: explicit consent remains a separate step. The optional second photo is available before that step and can be removed from either preview.
+
 
 Uses the provided logo unchanged as a raster asset, with CSS inversion for the light interface. The direction is the taste skill's **Split stage**, seed **682782689**, adapted to a functional app: the live/captured image is the persistent visual stage, and the quiet adjacent column changes from preparation to annotation to result. Palette and type stay with the supplied monochrome brand. No stock photos, ornamental motion, invented measurements or mock camera feed are shipped. The initial state explicitly shows that the camera is off.
 
