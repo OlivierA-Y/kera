@@ -22,13 +22,25 @@ try {
   page.on('request', request => requests.push({ url: request.url(), method: request.method() }));
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(base + '/care-review.html');
-  await page.locator('#care-handoff-note').waitFor();
+  await page.locator('#care-handoff-note').waitFor({ state: 'attached' });
   assert.equal(await page.locator('.care-finding').count(), 4);
   assert.equal(await page.locator('.care-context a').count(), 1);
   assert.match(await page.locator('body').innerText(), /Simulated preview/);
   pass('specific fixture displays four findings, one fixed citation and simulation notice');
 
   const note = page.locator('#care-handoff-note');
+  assert.equal(await note.isVisible(), false);
+  assert.match(await page.locator('.care-headline').innerText(), /AI reported changes/);
+  assert.equal(await page.locator('.care-uncertain-group').getAttribute('open'), null);
+  await page.getByRole('button', { name: 'Larger text' }).click();
+  assert.equal(await page.getByRole('button', { name: 'Larger text' }).getAttribute('aria-pressed'), 'true');
+  assert.equal(await page.locator('.care-summary-copy').evaluate(el => getComputedStyle(el).fontSize), '22px');
+  await page.getByRole('button', { name: 'Larger text' }).click();
+  await page.locator('.care-context > summary').click();
+  assert.match(await page.locator('.care-explanation').innerText(), /Questions to discuss/);
+  assert.equal(await page.locator('.care-explanation li').count(), 2);
+  pass('layered summary, optional explanations and larger text work without a long initial draft');
+  await page.getByRole('button', { name: 'Prepare a care-team note' }).click();
   await note.fill('Edited synthetic handoff. Verify before sharing.');
   await page.getByRole('button', { name: 'Copy draft' }).click();
   assert.equal(await page.evaluate(() => window.copiedDraft), 'Edited synthetic handoff. Verify before sharing.');
@@ -52,6 +64,7 @@ try {
     });
     window.testReview.show(EXAMPLES.specific.make());
   });
+  await page.getByRole('button', { name: 'Prepare a care-team note' }).click();
   await page.getByRole('button', { name: 'Copy draft' }).click();
   assert.match(await page.locator('.care-copy-status').innerText(), /copy the draft manually/);
   assert.equal(await note.evaluate(el => document.activeElement === el && el.selectionEnd === el.value.length), true);
@@ -86,7 +99,8 @@ try {
       await page.selectOption('#care-example', example);
       await page.getByRole('button', { name: 'Reload example' }).click();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${width} ${example} overflow`);
-      assert.equal(await note.evaluate(el => el.getBoundingClientRect().right <= innerWidth), true);
+   await page.getByRole('button', { name: 'Prepare a care-team note' }).click();
+   assert.equal(await note.evaluate(el => el.getBoundingClientRect().right <= innerWidth), true);
     }
     await page.selectOption('#care-example', 'specific');
     await page.screenshot({ path: `web/reports/care-review/preview-${width}.png`, fullPage: true });
@@ -100,9 +114,32 @@ try {
   await page.keyboard.press('Enter');
   await page.locator('#care-example').focus();
   assert.equal(await page.locator('#care-example').evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
+  await page.getByRole('button', { name: 'Prepare a care-team note' }).click();
   await note.focus(); await page.keyboard.press('Tab');
   assert.equal(await page.locator(':focus').innerText(), 'Copy draft');
   pass('skip link, visible keyboard focus and note-to-copy tab order');
+  await page.locator('.care-uncertain-group > summary').focus();
+  await page.keyboard.press('Space');
+  assert.equal(await page.locator('.care-uncertain-group').evaluate(el => el.open), true);
+  await page.getByRole('button', { name: 'Larger text' }).click();
+  await page.setViewportSize({ width: 320, height: 844 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.setViewportSize({ width: 768, height: 1000 });
+  await page.evaluate(() => { document.documentElement.style.zoom = '2'; });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.evaluate(() => { document.documentElement.style.zoom = ''; });
+  pass('native disclosures work by keyboard; 320px and 200% zoom fit with larger text');
+  for (const width of [1440, 390]) {
+    const screen = await context.newPage();
+    await screen.setViewportSize({ width, height: 1000 });
+    await screen.goto(base + '/care-review.html');
+    await screen.locator('#care-handoff-note').waitFor({ state: 'attached' });
+    await screen.getByRole('button', { name: 'Larger text' }).click();
+    await screen.locator('.care-context').evaluate(el => { el.open = true; });
+    assert.equal(await screen.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await screen.screenshot({ path: `web/reports/care-review/explanation-${width}.png`, fullPage: true, animations: 'disabled' });
+    await screen.close();
+  }
   assert.deepEqual(errors, []);
   assert.ok(requests.every(request => request.method === 'GET' && request.url.startsWith(base + '/')));
   assert.ok(requests.every(request => !request.url.includes('/api/')));

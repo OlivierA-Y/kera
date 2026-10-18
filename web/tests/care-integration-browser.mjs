@@ -40,7 +40,7 @@ try {
   async function send() {
     await open(); await page.locator('#vision-consent').check(); await page.locator('#send-vision').click();
   }
-  async function result() { await page.locator('#care-handoff-note').waitFor({ state: 'visible' }); }
+  async function result() { await page.locator('#care-handoff-note').waitFor({ state: 'attached' }); }
   async function cleared() {
     assert.equal(await page.locator('#care-handoff-note').count(), 0);
     assert.equal(await page.locator('#vision-results').isHidden(), true);
@@ -60,6 +60,8 @@ try {
   assert.ok(!(await note.inputValue()).includes('SIMULATED EXAMPLE'));
   // Test fixture is injected by this harness, never shipped as production output.
   assert.match(await note.inputValue(), /OpenRouter.*synthetic-model/s);
+  assert.equal(await note.isVisible(), false);
+  await page.getByRole('button', { name: 'Prepare a care-team note' }).click();
   await note.fill('Edited handoff from synthetic integration test.');
   await page.getByRole('button', { name: 'Copy draft' }).click();
   assert.equal(await page.evaluate(() => window.copied), 'Edited handoff from synthetic integration test.');
@@ -115,13 +117,26 @@ try {
     await screen.locator('#open-vision').click();
     await screen.waitForFunction(() => document.getElementById('vision-connection').textContent.includes('synthetic-model'));
     await screen.locator('#vision-consent').check(); await screen.locator('#send-vision').click();
-    await screen.locator('#care-handoff-note').waitFor();
+    await screen.locator('#care-handoff-note').waitFor({ state: 'attached' });
     assert.equal(await screen.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-    assert.equal(await screen.locator('#care-handoff-note').evaluate(el => el.getBoundingClientRect().right <= innerWidth), true);
+    assert.equal(await screen.locator('.care-overview').evaluate(el => el.getBoundingClientRect().right <= innerWidth), true);
     await screen.screenshot({ path: `web/reports/care-integration/results-${width}.png`, fullPage: true, animations: 'disabled' });
     await screen.close();
   }
   pass('integrated review/note fit 390/768/1440px alongside existing app');
+  for (const width of [1440, 390]) {
+    const capture = await context.newPage();
+    await capture.setViewportSize({ width, height: 1000 }); await capture.goto(base);
+    await capture.locator('#start-camera').waitFor();
+    assert.equal(await capture.locator('.skin-review-steps li').count(), 3);
+    await capture.locator('#review-categories > summary').click();
+    assert.equal(await capture.locator('#review-categories li').count(), 4);
+    assert.equal(await capture.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await capture.locator('#review-categories > summary').click();
+    await capture.screenshot({ path: `web/reports/care-integration/capture-${width}.png`, fullPage: true, animations: 'disabled' });
+    await capture.close();
+  }
+  pass('guided capture and optional category explanation fit desktop and phone');
   await page.locator('#tab-hb').click();
   await page.waitForFunction(() => document.getElementById('model-note').textContent.includes('Runs on your device'));
   assert.equal(await page.locator('#annotate-panel').isVisible(), true);

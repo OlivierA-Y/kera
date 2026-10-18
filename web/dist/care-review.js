@@ -60,7 +60,7 @@ export function buildHandoff(review, { synthetic = false } = {}) {
  */
 export function createCareReview(root, { synthetic = false, clipboard = globalThis.navigator?.clipboard } = {}) {
   const doc = root.ownerDocument;
-  let version = 0;
+  let version = 0, largeText = false;
   function node(tag, content, className) {
     const el = doc.createElement(tag);
     if (content !== undefined) el.textContent = content;
@@ -77,39 +77,87 @@ export function createCareReview(root, { synthetic = false, clipboard = globalTh
       alert.setAttribute('role', 'alert'); root.append(alert); return false;
     }
     const current = version;
+    root.classList.add('care-review'); root.classList.toggle('care-large-text', largeText);
+    const reported = review.findings.filter(item => item.status === 'possible_features');
+    const unclear = review.findings.filter(item => item.status === 'unclear');
+    const summary = node('section', undefined, 'care-overview');
+    const topline = node('div', undefined, 'care-overview-top');
+    const heading = node('h2', 'Your photo review');
+    const size = node('button', 'Larger text', 'care-text-size'); size.type = 'button';
+    size.setAttribute('aria-pressed', String(largeText));
+    size.addEventListener('click', () => {
+      largeText = !largeText; root.classList.toggle('care-large-text', largeText); size.setAttribute('aria-pressed', String(largeText));
+    });
+    topline.append(heading, size);
+    const headline = review.quality.assessment === 'unusable' ? 'This photo cannot be assessed.'
+      : reported.length ? 'The AI reported changes to review.' : 'The photo could not answer these checks.';
+    const qualityLabel = { adequate: 'Photo detail is visible', limited: 'Some photo detail is hard to see', unusable: 'Photo detail is not clear enough' }[review.quality.assessment];
+    summary.append(topline, node('p', headline, 'care-headline'), node('p', 'These are AI descriptions to review, not diagnoses. An unanswered check does not mean that a condition is absent.', 'care-summary-copy'));
+    const quality = node('details', undefined, 'care-quality-detail');
+    quality.append(node('summary', qualityLabel), node('p', review.quality.reason)); summary.append(quality);
+    const next = node('div', undefined, 'care-next-step');
+    const warning = reported.find(item => item.key === 'skin_cancer' && item.association);
+    next.append(node('h3', 'What to do next'), node('p', warning ? warning.association.followUp
+      : review.quality.assessment === 'unusable' ? 'Use a clearer photo if you want to try again. A photo review cannot replace professional assessment.'
+        : 'Review the descriptions below. Share concerning changes with a clinician, using the note if it helps.'));
+    summary.append(next);
+    const actions = node('div', undefined, 'care-overview-actions');
+    const prepare = node('button', 'Prepare a care-team note', 'button dark-button'); prepare.type = 'button';
+    actions.append(prepare); summary.append(actions);
     const layout = node('div', undefined, 'care-columns');
     const findings = node('section', undefined, 'care-findings');
-    const heading = node('h2', 'Changes to review');
-    findings.append(heading, node('p', `Image quality: ${review.quality.assessment}. ${review.quality.reason}`, 'care-quality'));
+    findings.append(node('h2', 'Look at the observations'));
     if (review.quality.assessment === 'unusable') {
       findings.append(node('h3', 'Cannot assess from photo'), node('p', 'Assessment is insufficient. No condition-specific explanations are shown. A different photo may improve visibility; it cannot replace professional assessment.'));
     } else {
-      for (const finding of review.findings) {
-        const row = node('section', undefined, 'care-finding');
-        row.append(node('h3', finding.label), node('p', STATES[finding.status], 'care-state'), node('p', finding.evidence));
+      function findingRow(finding, open = false) {
+        const row = node('details', undefined, 'care-finding'); row.open = open;
+        const toggle = node('summary');
+        const title = node('span', undefined, 'care-finding-title');
+        title.append(node('span', finding.label), node('span', STATES[finding.status], 'care-state'));
+        toggle.append(title); row.append(toggle);
+        const content = node('div', undefined, 'care-finding-body');
+        content.append(node('h3', 'What the AI described'), node('p', finding.evidence));
         if (finding.association) {
-          const context = node('div', undefined, 'care-context');
-          context.append(node('h4', 'What this appearance may mean'), node('p', finding.association.text), node('p', finding.association.followUp));
+          const context = node('details', undefined, 'care-context');
+          context.append(node('summary', 'Understand this observation'));
+          const explanation = node('div', undefined, 'care-explanation');
+          explanation.append(node('h4', 'What it may mean'), node('p', finding.association.text),
+            node('h4', 'What the photo cannot tell us'), node('p', finding.association.limits),
+            node('h4', 'Questions to discuss with a clinician'));
+          const questions = node('ul');
+          for (const question of finding.association.questions) questions.append(node('li', question));
+          explanation.append(questions, node('h4', 'Professional follow-up'), node('p', finding.association.followUp));
           for (const source of finding.association.sources) {
             const link = node('a', source.title + ' ↗');
-            link.href = source.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; context.append(link);
+            link.href = source.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; explanation.append(link);
           }
-          row.append(context);
+          context.append(explanation); content.append(context);
         } else if (finding.status === 'possible_features') {
-          row.append(node('p', 'No specific sourced explanation is available for this description. Review the observation with a clinician.', 'care-caution'));
+          content.append(node('p', 'No specific sourced explanation is available for this description. Review the observation with a clinician.', 'care-caution'));
+        } else {
+          content.append(node('p', 'This check is unanswered. It does not exclude the condition. A clinician can assess any concern.', 'care-caution'));
         }
-        findings.append(row);
+        row.append(content); return row;
+      }
+      reported.forEach((finding, index) => findings.append(findingRow(finding, index === 0)));
+      if (unclear.length) {
+        const group = node('details', undefined, 'care-uncertain-group');
+        group.append(node('summary', `${unclear.length} ${unclear.length === 1 ? 'check the photo could not answer' : 'checks the photo could not answer'}`),
+          node('p', 'Open a check to read its visibility limits. These are not negative results.'));
+        for (const finding of unclear) group.append(findingRow(finding));
+        findings.append(group);
       }
     }
-    findings.append(node('p', LIMITATION, 'care-caution'), node('p', 'New, changing, bleeding or non-healing changes need professional assessment, even if the photo review is unclear.', 'care-caution'));
-    const noteSection = node('section', undefined, 'care-note');
-    const noteHeading = node('h2', 'Care-team handoff');
+    findings.append(node('p', 'New, changing, bleeding or non-healing changes need professional assessment, even if the photo review is unclear.', 'care-caution'));
+    const noteSection = node('details', undefined, 'care-note');
+    const noteHeading = node('summary', 'Care-team handoff');
     const noteHelp = node('p', 'Review the description, edit the draft, then copy it yourself. Keep the note free of names, record numbers and other identifying details.');
     const label = node('label', 'Observation note');
     const textarea = node('textarea');
     textarea.id = 'care-handoff-note'; textarea.rows = 18; textarea.spellcheck = false;
     label.htmlFor = textarea.id; textarea.value = buildHandoff(review, { synthetic });
-    const warning = node('p', 'AI-assisted draft. Verify before use.', 'care-note-warning');
+    const noteWarning = node('p', 'AI-assisted draft. Verify before use.', 'care-note-warning');
     const copy = node('button', 'Copy draft', 'button dark-button'); copy.type = 'button';
     const status = node('p', '', 'care-copy-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
     textarea.addEventListener('input', () => { status.textContent = ''; });
@@ -128,10 +176,21 @@ export function createCareReview(root, { synthetic = false, clipboard = globalTh
         }
       } finally { if (version === current) copy.disabled = false; }
     });
-    noteSection.append(noteHeading, warning, noteHelp, label, textarea, copy, status,
+    noteSection.append(noteHeading, noteWarning, noteHelp, label, textarea, copy, status,
       node('p', synthetic ? 'Edits stay in this page only. Changing the example or clearing the review removes the draft. Nothing is saved or sent automatically.' : 'Edits stay in this page only. Changing the photo, angle or mode, or starting another analysis, clears the draft. Nothing is saved or sent automatically.', 'care-caution'));
-    const provenance = node('p', `Source: ${review.metadata.provider} · ${review.metadata.model}. Clinical references describe signs and assessment; they do not validate Kera’s image recognition.`, 'care-provenance');
-    layout.append(findings, noteSection); root.append(layout, provenance);
+    prepare.addEventListener('click', () => {
+      noteSection.open = true; textarea.focus({ preventScroll: true });
+      noteSection.scrollIntoView({ block: 'start', behavior: 'instant' });
+    });
+    const provenance = node('details', undefined, 'care-provenance');
+    provenance.append(node('summary', 'Sources and limits of this review'), node('p', LIMITATION),
+      node('p', 'Clinical references describe signs and assessment. They do not validate Kera’s image recognition. The explanations are curated educational context, separate from the AI description.'));
+    const usedSources = new Map(review.findings.flatMap(item => item.association?.sources || []).map(source => [source.id, source]));
+    for (const source of usedSources.values()) {
+      const link = node('a', source.title + ' ↗'); link.href = source.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; provenance.append(link);
+    }
+    provenance.append(node('p', `Analysis provider: ${review.metadata.provider}. Model: ${review.metadata.model}.`));
+    layout.append(findings, noteSection); root.append(summary, layout, provenance);
     return true;
   }
   return { show, clear };

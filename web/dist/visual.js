@@ -40,7 +40,7 @@ export function initializeVisualAnalysis({getPhoto}){
     $('side-label').textContent='Add another angle';$('side-input').disabled=false;
     $('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('open-vision').disabled=false;$('add-angle').disabled=false;
     $('vision-remote-note').hidden=true;feedback('');clearResults();
-    $('open-vision').disabled=!hasPhoto;$('open-vision').textContent=hasPhoto?'Continue':'Take or upload a photo';clearSidePreview();if(dialog.open)dialog.close();updateSend();
+    $('open-vision').disabled=!hasPhoto;$('open-vision').textContent=hasPhoto?'Preview photos':'Take or upload a photo';clearSidePreview();if(dialog.open)dialog.close();updateSend();
   }
   function clearSidePreview(){
     $('additional-preview').removeAttribute('src');$('additional-photo').hidden=true;
@@ -49,7 +49,7 @@ export function initializeVisualAnalysis({getPhoto}){
   function removeSide(){
     generation++;controller?.abort();controller=null;busy=false;sideVersion++;sideData=null;
     $('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('side-input').disabled=false;
-    $('open-vision').disabled=!photoReady;$('open-vision').textContent='Continue';$('add-angle').disabled=false;
+    $('open-vision').disabled=!photoReady;$('open-vision').textContent='Preview photos';$('add-angle').disabled=false;
     $('side-preview').removeAttribute('src');$('side-preview').hidden=true;$('remove-side').hidden=true;
     $('side-label').textContent='Add another angle';consent.checked=false;clearResults();clearSidePreview();feedback('');updateSend();
   }
@@ -69,7 +69,7 @@ export function initializeVisualAnalysis({getPhoto}){
     const file=event.target.files[0];if(!file)return;
     // A changed view invalidates the review immediately, including a pending result.
     generation++;controller?.abort();controller=null;busy=false;clearResults();consent.checked=false;
-    $('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('open-vision').textContent='Continue';$('add-angle').disabled=false;
+    $('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('open-vision').textContent='Preview photos';$('add-angle').disabled=false;
     const version=++sideVersion,current=generation;
     if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>30000000){feedback('Choose a JPEG, PNG, or WebP additional photo under 30 MB.');event.target.value='';return;}
     $('side-input').disabled=true;consent.checked=false;$('open-vision').disabled=true;send.disabled=true;
@@ -89,6 +89,7 @@ export function initializeVisualAnalysis({getPhoto}){
     const container=$('vision-results');
     if(!careReview.show(value))throw new Error('The observation response is incomplete or unsupported. No findings or handoff draft are shown. Try again.');
     $('review-categories').hidden=true;document.querySelector('.visual-intro').hidden=true;$('open-vision').textContent='Review again';container.hidden=false;container.setAttribute('tabindex','-1');container.focus({preventScroll:true});
+    if(window.innerWidth<740)container.scrollIntoView({block:'start',behavior:'instant'});
   }
   $('vision-form').addEventListener('submit',async(event)=>{
     event.preventDefault();if(!ready||!topData||!consent.checked||busy)return;
@@ -109,7 +110,7 @@ export function initializeVisualAnalysis({getPhoto}){
       clearResults();feedback(requestController.signal.aborted?'The request was canceled or timed out. Photos already sent may have reached OpenRouter. No observations are shown.':e.message||'The vision service could not be reached.');
     }finally{
       clearTimeout(timer);
-      if(current===generation){busy=false;controller=null;consent.checked=false;topData=null;sideData=null;$('top-preview').removeAttribute('src');$('side-preview').removeAttribute('src');$('side-preview').hidden=true;$('remove-side').hidden=true;$('side-label').textContent='Add another angle';$('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('open-vision').disabled=!photoReady;$('open-vision').textContent=$('vision-results').hidden?'Continue':'Review again';$('add-angle').disabled=false;clearSidePreview();updateSend();}
+      if(current===generation){busy=false;controller=null;consent.checked=false;topData=null;sideData=null;$('top-preview').removeAttribute('src');$('side-preview').removeAttribute('src');$('side-preview').hidden=true;$('remove-side').hidden=true;$('side-label').textContent='Add another angle';$('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('open-vision').disabled=!photoReady;$('open-vision').textContent=$('vision-results').hidden?'Preview photos':'Review again';$('add-angle').disabled=false;clearSidePreview();updateSend();}
     }
   });
   $('cancel-vision').addEventListener('click',()=>controller?.abort('user'));
