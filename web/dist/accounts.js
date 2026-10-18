@@ -7,6 +7,7 @@
  */
 import { createCareReview, normalizeReview, reviewHeadline } from './care-review.js';
 import { cleanContext, appendHemoglobinSummary, hemoglobinSummary } from './health-context.js';
+import { createPublicDemo } from './public-demo.js';
 
 const $=id=>document.getElementById(id);
 const cookieKey='kera_demo_identity',personKey='kera_demo_person';
@@ -19,6 +20,8 @@ const kinds={hb:'Hemoglobin levels',visual:'Nail Health Analysis'};
 const demoIdentity='kera-interactive-demo';
 const profileFields=['name','age','sex','pregnancy','conditions','medications','changes','history_unknown'];
 export function createAccountExperience({resetCapture}) {
+  const hosted=!['localhost','127.0.0.1','[::1]'].includes(location.hostname);
+  let publicDemo=null;
   let identityId=readCookie(cookieKey),guest=false,rememberProfile=true,workspace=null,person=null,screen='welcome',draftStep=0,fields={},flowKind='personal',editing=false,pendingSave=null,saveGeneration=0;
   let debounce=null,flowGeneration=0;
   const setupHeader=document.querySelector('.header');new ResizeObserver(()=>document.documentElement.style.setProperty('--setup-header-height',setupHeader.getBoundingClientRect().height+'px')).observe(setupHeader);
@@ -41,6 +44,7 @@ export function createAccountExperience({resetCapture}) {
 
   const csrfHeaders=()=>({'Content-Type':'application/json',...(identityId?{'X-Kera-Identity':identityId}:{})});
   async function api(path,method='GET',data,actor=identityId){
+    if(publicDemo)return publicDemo.request(path,method,data);
     const response=await fetch('/api/'+path,{method,headers:{...csrfHeaders(),...(actor?{'X-Kera-Identity':actor}:{})},...(data===undefined?{}:{body:JSON.stringify(data)}),cache:'no-store'});
     const result=await response.json().catch(()=>null);if(!response.ok||!result)throw Error(result?.error?.message||'Kera could not load your records. Check the local server and retry.');return result;
   }
@@ -70,21 +74,23 @@ export function createAccountExperience({resetCapture}) {
   }
   async function refresh(){workspace=await api('account');person=workspace.profiles.find(p=>p.id===person?.id)||workspace.profiles.find(p=>p.id===readCookie(personKey))||workspace.profiles[0]||null;}
   async function choose(id){if(id===demoIdentity){demoMode();return;}guest=false;clearTimeout(debounce);flowGeneration++;resetCapture();identityId=id;remember(cookieKey,id,rememberProfile);await refresh();if(workspace.identity.complete)await dashboard();else{flowKind=workspace.identity.kind;fields={name:workspace.identity.name,email:workspace.identity.email,job_role:workspace.identity.job_role,...workspace.identity.draft?.fields};draftStep=workspace.identity.draft?.step||0;onboard();}}
-  async function signOut(){if(guest){resetCapture();location.assign('/?signin=1');return;}clearTimeout(debounce);flowGeneration++;resetCapture();document.cookie=`${cookieKey}=; Path=/; Max-Age=0; SameSite=Lax`;document.cookie=`${personKey}=; Path=/; Max-Age=0; SameSite=Lax`;workspace=null;identityId='';person=null;pendingSave=null;saveGeneration++;status.hidden=true;await welcome();}
+  async function signOut(){if(guest||publicDemo){resetCapture();location.assign('/?signin=1');return;}clearTimeout(debounce);flowGeneration++;resetCapture();document.cookie=`${cookieKey}=; Path=/; Max-Age=0; SameSite=Lax`;document.cookie=`${personKey}=; Path=/; Max-Age=0; SameSite=Lax`;workspace=null;identityId='';person=null;pendingSave=null;saveGeneration++;status.hidden=true;await welcome();}
   function split(title,description){
     content();const layout=node('div',undefined,'setup-layout'),aside=node('aside',undefined,'setup-story');
     aside.append(node('p','Kera / A closer look.','setup-brand'),node('h2',workspace?.identity.kind==='worker'||flowKind==='worker'?'A clearer picture.\nAcross every check-in.':'Start with today.\nUnderstand changes over time.'),node('p','Your observations, thoughtfully kept together. No photos saved to your history.'));
     const mark=node('div',undefined,'setup-art');mark.setAttribute('aria-hidden','true');const illustration=node('img');illustration.src='/assets/onboarding-sculpture.png';illustration.alt='';illustration.width=1280;illustration.height=1280;illustration.decoding='async';mark.append(illustration);aside.append(mark,node('p','Experimental research tool.','story-foot'));
-    const sheet=node('div',undefined,'setup-sheet');sheet.append(node('p','LOCAL DEMO','account-kicker'),node('h1',title),node('p',description,'account-lead'));layout.append(aside,sheet);root.append(layout);const titleNode=sheet.querySelector('h1');titleNode.tabIndex=-1;queueMicrotask(()=>titleNode.isConnected&&titleNode.focus({preventScroll:true}));return sheet;
+    const sheet=node('div',undefined,'setup-sheet');sheet.append(node('p',hosted?'PUBLIC DEMO':'LOCAL DEMO','account-kicker'),node('h1',title),node('p',description,'account-lead'));layout.append(aside,sheet);root.append(layout);const titleNode=sheet.querySelector('h1');titleNode.tabIndex=-1;queueMicrotask(()=>titleNode.isConnected&&titleNode.focus({preventScroll:true}));return sheet;
   }
   async function welcome(){
-    guest=false;go('welcome');const sheet=split('A closer look starts here.','Choose Individual, Healthcare worker, or jump straight into the demo.');
+    guest=false;go('welcome');const sheet=split('A closer look starts here.',hosted?'Explore a healthcare worker’s sample workspace, or try the checker. No sign-in.':'Choose Individual, Healthcare worker, or jump straight into the demo.');
     const choices=node('div',undefined,'audience-choices');
-    for(const [kind,title,desc] of [['personal','Individual','Track my own hemoglobin estimates and visual observations.'],['worker','Healthcare worker','Manage residents and review their observations over time.']]){
-      const b=action('',()=>{flowKind=kind;fields={};draftStep=0;workspace=null;onboard();},true);b.dataset.audience=kind;b.append(node('strong',title),node('span',desc),node('span','Continue →','choice-arrow'));choices.append(b);
+    for(const [kind,title,desc] of (hosted?[['worker','Healthcare worker demo','Explore 21 fictional residents and six months of sample history. No sign-in.']]:[['personal','Individual','Track my own hemoglobin estimates and visual observations.'],['worker','Healthcare worker','Manage residents and review their observations over time.']])){
+      const b=action('',()=>{if(hosted){location.assign('/?demo=worker');return;}flowKind=kind;fields={};draftStep=0;workspace=null;onboard();},true);b.dataset.audience=kind;b.append(node('strong',title),node('span',desc),node('span',hosted?'Try now →':'Continue →','choice-arrow'));choices.append(b);
     }const demo=action('',()=>demoMode(),true);demo.id='demo-entry';demo.classList.add('demo-entry');demo.append(node('strong','Demo'),node('span','Try both analyses and keep your demo results in history. No onboarding.'),node('span','Try now →','choice-arrow'));choices.append(demo);
-    const saved=action('',openSavedProfiles,true);saved.id='saved-profiles-entry';saved.append(node('strong','Saved profiles'),node('span','Return to your workspace and saved observations.'),node('span','Continue →','choice-arrow'));saved.setAttribute('aria-label','Saved profiles');choices.append(saved);sheet.append(choices);
-    const restore=node('input');restore.type='file';restore.accept='.json,application/json';restore.id='welcome-restore';restore.hidden=true;restore.addEventListener('change',()=>void restoreFile(restore));const footer=node('div',undefined,'welcome-footer');const restoreAction=action('Restore backup',()=>restore.click(),true);restoreAction.className='restore-backup-link';footer.append(restore,restoreAction);sheet.append(node('p','Demo profile selection does not verify identity. Use demonstration data. Records are stored by this local Kera server.','account-note'),footer);
+    if(!hosted){const saved=action('',openSavedProfiles,true);saved.id='saved-profiles-entry';saved.append(node('strong','Saved profiles'),node('span','Return to your workspace and saved observations.'),node('span','Continue →','choice-arrow'));saved.setAttribute('aria-label','Saved profiles');choices.append(saved);}sheet.append(choices);
+    const restore=node('input');restore.type='file';restore.accept='.json,application/json';restore.id='welcome-restore';restore.hidden=true;restore.addEventListener('change',()=>void restoreFile(restore));const footer=node('div',undefined,'welcome-footer');const restoreAction=action('Restore backup',()=>restore.click(),true);restoreAction.className='restore-backup-link';
+    const publicLink=node('a',hosted?'Download demo dataset':'Try healthcare worker demo');publicLink.href=hosted?'/demo-data/kera-demo-backup.json':'/?demo=worker';if(hosted)publicLink.download='kera-demo-backup.json';publicLink.className='restore-backup-link';publicLink.id='public-worker-demo';footer.append(publicLink);if(!hosted)footer.append(restore,restoreAction);
+    sheet.append(node('p',hosted?'Public demo with fictional sample data. Changes stay in this browser. No sign-in required.':'Demo profile selection does not verify identity. Use demonstration data. Records are stored by this local Kera server.','account-note'),footer);
   }
   function openSavedProfiles(){history.pushState(null,'','#saved-profiles');return savedProfiles();}
   async function savedProfiles(){
@@ -166,6 +172,7 @@ export function createAccountExperience({resetCapture}) {
   function heading(title,description){content();const h=node('div',undefined,'account-page-heading');h.append(node('p',guest?'DEMO':workspace?.identity.kind==='worker'?'CARE TEAM':'PERSONAL','account-kicker'),node('h1',title),node('p',description,'account-lead'));root.append(h);const titleNode=h.querySelector('h1');titleNode.tabIndex=-1;queueMicrotask(()=>titleNode.isConnected&&titleNode.focus({preventScroll:true}));return h;}
   async function dashboard(){
     go('dashboard');await refresh();const worker=workspace.identity.kind==='worker';heading(worker?'Your residents.':guest?'Your demo workspace.':'A closer look, over time.',worker?'Each resident has their own background, check-ins and history.':'Start a check-in or revisit your saved observations.');
+    if(publicDemo)root.append(node('p','Public demo · Fictional sample data. Your changes stay in this browser. Download or reset your copy in Settings.','account-note'));
     if(worker){
       const tools=node('div',undefined,'page-tools'),search=node('input');search.type='search';search.placeholder='Search residents';search.setAttribute('aria-label','Search residents');tools.append(search,action('Add resident',()=>profileForm(),false));root.append(tools);
       const list=node('div',undefined,'resident-list');root.append(list);
@@ -260,9 +267,10 @@ export function createAccountExperience({resetCapture}) {
   }
   function compareView(rows){go('compare');heading('Two check-ins, side by side.',`${person.name} · Changes in AI observations are not proof of changes in health.`);root.append(action('← Back to history',historyView,true));if(rows[0].kind==='hb')root.append(node('p',`Difference between selected estimates: ${Math.abs(rows[0].data.hemoglobin_g_per_l-rows[1].data.hemoglobin_g_per_l).toFixed(1)} g/L. Capture and model variation may contribute.`));const grid=node('div',undefined,'comparison-grid');for(const r of rows){const section=node('section',undefined,'saved-result');resultBody(r,section);grid.append(section);}root.append(grid);}
   async function teamView(){
-    go('team');const org=workspace.organizations[0];heading('Your care team.',org?`${org.name} · Demo membership within this local Kera database.`:'This worker no longer has an active organization membership. Ask the owner for help.');if(!org)return;
-    const isOwner=workspace.memberships.some(m=>m.organization_id===org.id&&m.role==='owner');const members=(await api(`organizations/${org.id}/team`)).members;
+    go('team');const org=workspace.organizations[0];heading('Your care team.',org?`${org.name} · ${publicDemo?'Fictional demo in this browser.':'Demo membership within this local Kera database.'}`:'This worker no longer has an active organization membership. Ask the owner for help.');if(!org)return;
+    const isOwner=!publicDemo&&workspace.memberships.some(m=>m.organization_id===org.id&&m.role==='owner');const members=(await api(`organizations/${org.id}/team`)).members;
     for(const m of members){const row=node('article',undefined,'resident-row');row.append(node('h2',m.name),node('p',`${m.job_role||'Care worker'} · ${m.role}${m.active?'':' · Inactive'}`));if(isOwner&&m.role!=='owner'&&m.active)row.append(action('Deactivate access',async()=>{await api('memberships/'+m.id,'DELETE');await teamView();},true));root.append(row);}
+    if(publicDemo)root.append(node('p','This fictional care team belongs to your browser demo. Share the public demo link so others can explore their own copy.','account-note'));
     if(isOwner){root.append(action('Create invitation',async()=>{await api(`organizations/${org.id}/invitations`,'POST',{});await teamView();}));const invitations=(await api(`organizations/${org.id}/invitations`)).invitations;for(const inv of invitations.filter(v=>!v.used_by&&!v.revoked&&Date.parse(v.expires_at)>Date.now())){const row=node('div',undefined,'invitation-row');row.append(node('p',`Care worker invitation · expires ${dateLabel(inv.expires_at)}`));const input=node('input');input.value=location.origin+location.pathname+'?invite='+inv.id;input.readOnly=true;input.setAttribute('aria-label','Invitation link');input.addEventListener('focus',()=>input.select());row.append(input,action('Copy link',async()=>{await navigator.clipboard.writeText(input.value);},true),action('Revoke',async()=>{await api('invitations/'+inv.id,'DELETE');await teamView();},true));root.append(row);}}
   }
   async function restoreFile(input){
@@ -270,11 +278,23 @@ export function createAccountExperience({resetCapture}) {
     try{const b=JSON.parse(await file.text());const result=await api('restore','POST',b);await welcome();feedback(`Restored ${result.restored} records. Select the saved profile to continue.`);}catch(e){feedback(e instanceof SyntaxError?'This file is not valid JSON. Choose a Kera backup.':e);}finally{input.value='';}
   }
   function settings(){
+    if(publicDemo){
+      go('settings');heading('Your demo, in this browser.','Fictional sample records and your changes are stored on this browser only. Clearing browser storage removes your changes.');
+      root.append(action('Download workspace backup',async()=>download('kera-public-demo-backup.json',JSON.stringify(await api('backup'),null,2))));
+      if(workspace.identity.kind==='worker')for(const [file,label]of [['kera-demo-backup.json','Download original demo dataset'],['residents.csv','Download sample residents CSV'],['weekly-history.csv','Download sample history CSV']]){const a=node('a',label,'button secondary-button');a.href='/demo-data/'+file;a.download=file;root.append(a);}
+      const reset=node('details');reset.append(node('summary','Reset demo'),node('p','Remove your changes in this browser and reload the original fictional dataset.'));
+      reset.append(action('Reset this browser’s demo',()=>{publicDemo.reset();location.reload();},true));root.append(reset);return;
+    }
     go('settings');heading('Your data, kept together.','The cookie remembers your selection. Your profiles and results are stored separately by this local Kera server.');root.append(node('p','Clearing cookies or browser storage signs you out without deleting records. Return to the profile chooser to reconnect. A lost database file needs a backup.','settings-copy'));
     const owner=workspace.identity.kind==='personal'||workspace.memberships.some(m=>m.role==='owner');if(owner)root.append(action('Download workspace backup',async()=>download('kera-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(await api('backup'),null,2))));else root.append(node('p','Ask your organization owner for a complete workspace backup.'));
     const restore=node('input');restore.type='file';restore.accept='.json,application/json';restore.id='settings-restore';restore.hidden=true;restore.addEventListener('change',()=>void restoreFile(restore));root.append(restore,action('Restore backup',()=>restore.click(),true),node('p','Backups include profile backgrounds, results and notes, without photos. Conflicting records are rejected; current data is never silently replaced.','account-note'),node('h2','Demo identity','section-heading'),node('p','No password or email verification is used. Selecting a profile does not prove identity. This local demo is for demonstration data. Real login and hosted storage can be added later.','settings-copy'));
   }
-  function demoMode(){resetCapture();location.assign('/demo/?entry=1');}
+  function demoMode(){resetCapture();location.assign(hosted?'/?demo=personal':'/demo/?entry=1');}
+  async function openPublicDemo(kind){
+    resetCapture();identityId='';workspace=null;person=null;guest=kind==='personal';publicDemo=createPublicDemo({kind});
+    try{workspace=await publicDemo.enter();identityId=workspace.identity.id;person=workspace.profiles[0];if(guest)go('capture');else await dashboard();}
+    catch(e){go('welcome');heading('The demo could not load.',e.message);root.append(action('Retry',()=>openPublicDemo(kind)),action('Reset demo',()=>{publicDemo.reset();return openPublicDemo(kind);},true));}
+  }
   function captureContext(){return person&&workspace?{identityId,profileId:person.id,profileName:person.name,health:cleanContext(person),shareHealthContext:!guest}:null;}
   async function saveCompleted(context,result){
     if(!context)return;
@@ -287,6 +307,8 @@ export function createAccountExperience({resetCapture}) {
   }
   async function start(){
     try{
+      const publicKind=new URLSearchParams(location.search).get('demo');if(['worker','personal'].includes(publicKind)){await openPublicDemo(publicKind);return;}
+      if(hosted){identityId='';await welcome();return;}
       if(location.pathname.startsWith('/demo/')){guest=true;identityId='';workspace=await api('demo-workspace','POST',{});identityId=workspace.identity.id;person=workspace.profiles[0];go('capture');return;}
       if(new URLSearchParams(location.search).has('signin')){identityId='';history.replaceState(null,'',location.pathname);await welcome();return;}
       const entryURL=new URL(location.href);if(entryURL.searchParams.has('demo')){entryURL.searchParams.delete('demo');history.replaceState(null,'',entryURL.pathname+entryURL.search+entryURL.hash);}

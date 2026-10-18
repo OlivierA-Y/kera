@@ -33,3 +33,4 @@ web/reports/accounts/
 
 # Local Vercel project metadata
 .vercel/
+web/dist/demo-data/

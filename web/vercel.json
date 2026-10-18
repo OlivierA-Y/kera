@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "",
+  "buildCommand": "node scripts/demo-dataset.mjs dist/demo-data",
   "outputDirectory": "dist",
   "functions": {
     "api/index.mjs": {
@@ -20,6 +20,10 @@
     {
       "source": "/api/scans/average",
       "destination": "/api/index?endpoint=average"
+    },
+    {
+      "source": "/api/context/hb",
+      "destination": "/api/index?endpoint=context"
     }
   ],
   "headers": [
@@ -48,7 +52,7 @@
   "git": {
     "deploymentEnabled": {
       "codex/accounts-onboarding-history": false,
-      "main": false
+      "main": true
     }
   }
 }

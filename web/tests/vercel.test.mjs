@@ -20,6 +20,7 @@ test('Vercel route adapter handles averaging with an exact HTTPS deployment orig
   assert.equal((await call('/api/index?endpoint=average',{method:'POST',body:JSON.stringify(payload),origin:'https://evil.example'})).status,403);
   assert.equal((await call('/api/index?endpoint=status',{host:'evil.example'})).status,403);
   assert.equal((await call('/api/index?endpoint=analyze',{method:'POST',body:'{}'})).body.error.code,'consent_required');
+  assert.equal((await call('/api/index?endpoint=context',{method:'POST',body:'{}'})).body.error.code,'consent_required');
   assert.equal((await call('/api/vision/status')).status,200);
  });
 });

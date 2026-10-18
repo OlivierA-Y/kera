@@ -177,7 +177,7 @@ body[data-account-screen="welcome"] .audience-choices span:not(.choice-arrow) { 
 body[data-account-screen="welcome"] .setup-sheet > .button { min-height: 44px; padding: 10px 16px; }
 .welcome-tools { display: flex; gap: 8px; flex-wrap: wrap; }
 .welcome-tools .button { min-height: 44px; padding: 10px 16px; }
-.welcome-footer { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 16px; }
+.welcome-footer { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; margin-top: auto; padding-top: 16px; }
 .account-app .restore-backup-link { border: 0; background: transparent; padding: 8px 0 8px 16px; min-height: 44px; color: #595959; font-size: 13px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
 .account-app .restore-backup-link:hover { color: #202020; }
 .account-app .restore-backup-link:focus-visible { outline: 2px solid #242424; outline-offset: 3px; }
