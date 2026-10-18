@@ -21,26 +21,31 @@ export function validateInsights(v){
 }
 export const MEDLINEPLUS='https://medlineplus.gov/ency/article/003645.htm';
 export const HB_TEST_SOURCE='https://medlineplus.gov/lab-tests/hemoglobin-test/';
-export function hemoglobinContext(value,hb){
+export function hemoglobinContext(value,hb,{demo=false}={}){
   const c=cleanContext(value);if(!Number.isFinite(hb)||hb<=0||hb>1000)throw Error('Invalid Hb estimate.');
-  const range=c.age>=18&&c.sex==='male'&&c.pregnancy!=='pregnant'?[138,172]:c.age>=18&&c.sex==='female'&&c.pregnancy==='not_pregnant'?[121,151]:null;
-  return {context:c,range,comparison:range?`Your photo estimate is ${hb<range[0]?'below':hb>range[1]?'above':'within'} this common adult laboratory reference range (${range[0]}–${range[1]} g/L). This is an educational comparison, not a blood-test result or a health classification.`:'A personal reference range is not assigned from age and sex alone. Clinical sex, pregnancy, the laboratory and other factors matter. Ask your clinician which blood-test reference interval applies.',reference:'Common adult laboratory intervals: male 138–172 g/L; female 121–151 g/L. These are reference intervals, not averages or validated targets for Kera photo estimates. Pregnancy and children require different interpretation.',limitation:'This estimate is experimental and can be wrong even when it falls within a laboratory interval. A photo cannot confirm or rule out anemia. Your background does not change the measured model output.'};
+  // Demo deliberately uses the outer bounds of the two sourced adult intervals.
+  // It is a broad illustrative guide, never a personalized or universal interval.
+  const range=demo?[121,172]:c.age>=18&&c.sex==='male'&&c.pregnancy!=='pregnant'?[138,172]:c.age>=18&&c.sex==='female'&&c.pregnancy==='not_pregnant'?[121,151]:null;
+  return {context:c,range,demo,comparison:range?`Your photo estimate is ${hb<range[0]?'below':hb>range[1]?'above':'within'} ${demo?'the broad adult demo guide':'this common adult laboratory reference range'} (${range[0]}–${range[1]} g/L). This is an educational comparison, not a blood-test result or a health classification.`:'A personal reference interval cannot be selected from the supplied details. Age, sex, pregnancy and the laboratory matter. Ask your clinician which blood-test reference interval applies.',reference:demo?'Demo guide: 121–172 g/L combines the outer limits of the common adult female and male intervals. It is intentionally broad because Demo has no personal background. It does not apply to every adult, children or pregnancy.':'Common adult laboratory intervals: male 138–172 g/L; nonpregnant female 121–151 g/L. These are reference intervals, not averages or validated targets for Kera photo estimates. Pregnancy and children require different interpretation.',limitation:'This estimate is experimental and can be wrong even when it falls within a laboratory interval. A photo cannot confirm or rule out anemia or establish that you are healthy. Conditions and medicines provide interpretation context; they do not change the model output or automatically change these reference limits.'};
 }
 export function contextLines(context){const c=cleanContext(context);return Object.entries(c).filter(([k,v])=>v!==''&&v!==null&&k!=='history_unknown').map(([k,v])=>`${k.replaceAll('_',' ')}: ${v}`).concat(c.history_unknown?['Health history not provided.']:[]).join('\n');}
-export function hemoglobinSummary(context,hb){
-  const report=hemoglobinContext(context,hb),c=report.context;
+export function hemoglobinSummary(context,hb,options={}){
+  const report=hemoglobinContext(context,hb,options),c=report.context;
   const state=!report.range?'unavailable':hb<report.range[0]?'below':hb>report.range[1]?'above':'within';
-  const title=state==='unavailable'?'Personal reference unavailable':`${state[0].toUpperCase()+state.slice(1)} the common reference range`;
-  const detail=report.range?`${report.range[0]}–${report.range[1]} g/L · Adult ${c.sex==='male'?'male':'female'} reference · Age ${c.age}`:'Your age, sex or pregnancy details do not establish an applicable reference interval.';
+  const label=({below:'Low',above:'High',within:'Within range',unavailable:'Reference needed'})[state];
+  const title=state==='unavailable'?'Personal reference needed':state==='within'?`Within ${report.demo?'demo guide':'reference'} range`:`${label} · ${state==='below'?'Below':'Above'} ${report.demo?'demo guide':'reference'} range`;
+  const detail=report.range?`${report.range[0]}–${report.range[1]} g/L · ${report.demo?'Broad adult demo guide · Not personalized':`Adult ${c.sex==='male'?'male':'female'} reference · Age ${c.age}`}`:c.age!==undefined&&c.age<18?`Age ${c.age} · An age-specific reference is needed for children and teenagers.`:c.pregnancy==='pregnant'?'Pregnancy reported · A pregnancy-specific reference and gestational stage are needed.':c.age===undefined?'Add your age and reference details to select a personal interval.':!['male','female'].includes(c.sex)?`Age ${c.age} · No sex-specific interval is selected without the applicable reference details.`:'Add pregnancy context to select the applicable adult reference interval.';
   const background=c.conditions||c.medications||c.changes?'Your health background may affect interpretation. Explore your background below.':c.history_unknown?'Health history was not provided.':'';
-  return {...report,state,title,detail,background};
+  return {...report,state,label,title,detail,background};
 }
-export function appendHemoglobinSummary(root,context,hb){
-  const report=hemoglobinSummary(context,hb),doc=root.ownerDocument;
+export function appendHemoglobinSummary(root,context,hb,options={}){
+  const report=hemoglobinSummary(context,hb,options),doc=root.ownerDocument;
   root.classList.add('hb-reference');root.dataset.range=report.state;
-  for(const [tag,text,cls]of [['p',report.title,'hb-range-status'],['p',report.detail,'hb-range-detail'],['p','Photo estimate only. Low hemoglobin can be overestimated; confirm concerns with a clinician and a blood test.','hb-range-caution']]){const n=doc.createElement(tag);n.textContent=text;n.className=cls;root.append(n);}
+  for(const [tag,text,cls]of [['p',report.title,'hb-range-status'],['p',report.detail,'hb-range-detail'],['p',stateCaution(report.state),'hb-range-caution']]){const n=doc.createElement(tag);n.textContent=text;n.className=cls;root.append(n);}
+  if(report.demo){const details=doc.createElement('details'),summary=doc.createElement('summary'),explanation=doc.createElement('p'),source=doc.createElement('a');summary.textContent='How the demo guide works';explanation.textContent=report.reference;source.textContent='Adult laboratory reference source ↗';source.href=MEDLINEPLUS;source.target='_blank';source.rel='noopener noreferrer';details.append(summary,explanation,source);root.append(details);}
   return report;
 }
+function stateCaution(state){return state==='within'?'Within range does not prove good health. This is a photo estimate; low hemoglobin can be overestimated. Confirm concerns with a clinician and a blood test.':state==='unavailable'?'No healthy or unhealthy classification is assigned without an applicable reference. This photo estimate can be wrong; ask a clinician about a blood test.':'Photo estimate only. Discuss a low or high estimate with a clinician and confirm with a blood test. Low hemoglobin can be overestimated.';}
 export function renderHealthContext(root,context,hb,onInsights){
   root.replaceChildren();root.hidden=false;const report=appendHemoglobinSummary(root,context,hb),doc=root.ownerDocument;
   const add=(parent,tag,text,cls)=>{const n=doc.createElement(tag);n.textContent=text;if(cls)n.className=cls;parent.append(n);return n;};

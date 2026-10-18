@@ -88,6 +88,8 @@ body.has-account .record-save .button { padding: 8px 12px; min-height: 40px; bor
 .hb-reference[data-range="below"] .hb-range-status::before, .hb-reference[data-range="above"] .hb-range-status::before { content: '⚠ '; }
 .hb-reference .hb-range-detail { font-size: 13px; line-height: 1.5; color: #5a5d59; margin: 6px 0; }
 .hb-reference .hb-range-caution { font-size: 13px; line-height: 1.5; margin: 10px 0; color: #4b4e4b; }
+.history-reference-detail { display: block; max-width: 28ch; margin-top: 5px; font-size: 12px; line-height: 1.4; color: #595959; }
+.history-badge[data-range="below"], .history-badge[data-range="above"] { font-weight: 650; }
 .hb-context-details { margin: 16px 0!important; border-block: 1px solid #ddd; padding: 12px 0; }
 .hb-context-details summary { margin: 0; font-size: 14px; font-weight: 500; }
 .hb-context-details[open] summary { margin-bottom: 16px; }

@@ -50,6 +50,21 @@ test('concise reference summaries preserve inclusive limits and avoid a healthy 
  for(const context of [{age:12,sex:'male'},{age:36,sex:'female',pregnancy:'pregnant'},{age:36,sex:'other_or_not_provided'},{}])assert.equal(hemoglobinSummary(context,150).state,'unavailable');
 });
 
+test('Plain Demo uses an explicit broad guide; personal ranges respond to supplied reference details',()=>{
+ const empty={history_unknown:true};
+ for(const [value,state,label]of [[120.9,'below','Low'],[121,'within','Within range'],[172,'within','Within range'],[172.1,'above','High']]){
+  const report=hemoglobinSummary(empty,value,{demo:true});assert.deepEqual(report.range,[121,172]);assert.equal(report.state,state);assert.equal(report.label,label);assert.match(report.detail,/Not personalized/);assert.equal(report.context.age,undefined);assert.equal(report.context.sex,'');
+ }
+ assert.equal(hemoglobinSummary({},140).state,'unavailable');
+ assert.equal(hemoglobinSummary({age:36,sex:'male'},130).label,'Low');
+ assert.equal(hemoglobinSummary({age:36,sex:'female',pregnancy:'not_pregnant'},130).label,'Within range');
+ assert.equal(hemoglobinSummary({age:36,sex:'female',pregnancy:'not_pregnant'},160).label,'High');
+ assert.equal(hemoglobinSummary({age:36,sex:'male'},160).label,'Within range');
+ assert.match(hemoglobinSummary({age:8,sex:'male'},140).detail,/age-specific/);
+ assert.match(hemoglobinSummary({age:36,sex:'female',pregnancy:'pregnant'},140).detail,/pregnancy-specific/);
+ assert.deepEqual(hemoglobinSummary({age:36,sex:'male',conditions:'Reported anemia',medications:'Reported medication'},140).range,[138,172]);
+});
+
 
 test('Demo workspace has durable isolated history without invented demographics or duplicate profiles',()=>{
  const dir=mkdtempSync(join(tmpdir(),'kera-demo-history-'));let s=openRecords(join(dir,'records.sqlite'));

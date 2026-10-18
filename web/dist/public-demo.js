@@ -26,7 +26,8 @@ export function createPublicDemo({storage=globalThis.localStorage,load=async()=>
     const saved=storage.getItem(key);
     if(saved){try{data=check(JSON.parse(saved));}catch{throw Error('The saved demo could not be read. Use Reset demo to reload its sample data.');}}
     else{
-      const fixture=kind==='worker'?await load():{format:'kera-backup',version:1,exported_at:stamp(),identities:[{id:'kera-interactive-demo',kind:'personal',name:'Demo',email:'',job_role:'',complete:true,draft:{},created_at:stamp()}],organizations:[],facilities:[],memberships:[],profiles:[{id:'kera-interactive-demo-profile',identity_id:'kera-interactive-demo',organization_id:null,name:'Demo',age:null,age_as_of:stamp(),sex:'',pregnancy:'',conditions:'',medications:'',changes:'',history_unknown:true,created_at:stamp()}],results:[]};
+      const individual=kind==='individual';
+      const fixture=kind==='worker'?await load():{format:'kera-backup',version:1,exported_at:stamp(),identities:[{id:individual?'kera-browser-individual':'kera-interactive-demo',kind:'personal',name:individual?'Individual':'Demo',email:'',job_role:'',complete:!individual,draft:{},created_at:stamp()}],organizations:[],facilities:[],memberships:[],profiles:individual?[]:[{id:'kera-interactive-demo-profile',identity_id:'kera-interactive-demo',organization_id:null,name:'Demo',age:null,age_as_of:stamp(),sex:'',pregnancy:'',conditions:'',medications:'',changes:'',history_unknown:true,created_at:stamp()}],results:[]};
       data=check(copy(fixture));
       // Fail before showing a persistent workspace if storage is unavailable/full.
       storage.setItem(key,JSON.stringify(data));
@@ -43,6 +44,20 @@ export function createPublicDemo({storage=globalThis.localStorage,load=async()=>
   function request(path,method='GET',body){
     if(!data)throw Error('Open the demo workspace first.');
     if(path==='account'&&method==='GET')return copy({identity:data.identities[0],organizations:data.organizations,facilities:data.facilities,memberships:data.memberships,profiles:data.profiles});
+    if(kind==='individual'&&path==='account/draft'&&method==='PATCH')return change(()=>{
+      if(!Number.isInteger(body.step)||body.step<0||body.step>3)throw Error('This setup step could not be saved.');
+      const fields=Object.fromEntries(Object.entries(body.fields).filter(([k])=>['name','age','sex','pregnancy','conditions','medications','changes','history_unknown'].includes(k)));
+      for(const v of Object.values(fields))if(typeof v==='string')plain(v,2000);
+      data.identities[0].draft={step:body.step,fields};return data.identities[0];
+    });
+    if(kind==='individual'&&path==='account/complete'&&method==='POST')return change(()=>{
+      if(data.identities[0].complete)return request('account');
+      const health=cleanContext(body.profile),name=plain(body.name);
+      if(!name||health.age===undefined)throw Error('Enter your name and age to finish setup.');
+      const identity=data.identities[0];identity.name=name;identity.complete=true;identity.draft={};
+      data.profiles=[{id:'kera-browser-individual-profile',identity_id:identity.id,organization_id:null,name,...health,age_as_of:stamp().slice(0,10),created_at:stamp()}];
+      return request('account');
+    });
     if(path==='backup'&&method==='GET')return copy({...data,exported_at:stamp()});
     const parts=path.split('/');
     if(parts[0]==='profiles'&&parts[2]==='results'){
@@ -88,5 +103,5 @@ export function createPublicDemo({storage=globalThis.localStorage,load=async()=>
     if(parts[0]==='organizations'&&parts[2]==='team'&&method==='GET')return {members:copy(data.memberships.filter(m=>m.organization_id===parts[1]).map(m=>({...m,name:data.identities[0].name,job_role:data.identities[0].job_role})))};
     throw Error('This action is available in a local workspace. The public demo stays in this browser.');
   }
-  return {enter,request,reset};
+  return {kind,enter,request,reset};
 }

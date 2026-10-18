@@ -39,3 +39,20 @@ test('Public personal demo never imports resident backgrounds and does not expos
  a.request('profiles/'+workspace.profiles[0].id+'/results','POST',entry);
  assert.equal(a.request('backup').results[0].data.hemoglobin_g_per_l,112);
 });
+
+test('Hosted Individual resumes intake and preserves personal context and history separately from Demo',async()=>{
+ const storage=memory(),load=()=>{throw Error('Individual must not load fictional residents');};
+ const create=()=>createPublicDemo({storage,kind:'individual',load});let a=create();
+ assert.equal((await a.enter()).identity.complete,false);assert.equal(a.request('account').profiles.length,0);
+ a.request('account/draft','PATCH',{step:1,fields:{name:'Individual QA',age:36,sex:'male',conditions:'Reported anemia',medications:'Reported medication',history_unknown:false}});
+ a=create();assert.equal((await a.enter()).identity.draft.fields.conditions,'Reported anemia');
+ const workspace=a.request('account/complete','POST',{name:'Individual QA',profile:{name:'Individual QA',age:36,sex:'male',conditions:'Reported anemia',history_unknown:false}});
+ assert.equal(workspace.identity.complete,true);assert.equal(workspace.profiles[0].sex,'male');const p=workspace.profiles[0];
+ a.request('profiles/'+p.id+'/results','POST',entry);
+ a.request('profiles/'+p.id,'PUT',{name:p.name,age:36,sex:'female',pregnancy:'not_pregnant'});
+ assert.equal(a.request('profiles/'+p.id+'/results').results[0].context.sex,'male');
+ a=create();await a.enter();assert.equal(a.request('account').profiles[0].sex,'female');assert.equal(a.request('backup').results.length,1);
+ const demo=createPublicDemo({storage,kind:'personal'});await demo.enter();assert.equal(demo.request('backup').results.length,0);assert.equal(demo.request('account').profiles[0].age,null);
+ const store=openRecords(':memory:');try{store.restore(a.request('backup'));assert.equal(store.results(store.actor(workspace.identity.id),p.id).length,1);}finally{store.close();}
+ a.reset();assert.equal((await a.enter()).identity.complete,false);assert.equal(demo.request('account').identity.name,'Demo');
+});
