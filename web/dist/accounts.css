@@ -61,9 +61,14 @@ body.has-account .account-bar .button { display: flex; justify-content: flex-sta
 body.has-account .account-bar .button:hover, body.has-account .account-bar .mode-tab:hover { background: #343836; transform: none; }
 body.has-account .account-bar .button[aria-current="page"] { background: #414743; color: #fff; }
 .account-bar svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-body.has-account .mode-tabs { display: flex!important; position: static; transform: none; flex-direction: column; align-items: stretch; width: 100%; max-width: none; padding: 0; margin: 0; border: 0; border-radius: 0; gap: 5px; background: none; }
-body.has-account .mode-tabs button { padding: 13px 14px; min-height: 46px; border: 0; border-radius: 8px; text-align: left; white-space: normal; background: none; color: #d8dcd9; font: 14px/1.5 var(--font); }
-body.has-account[data-account-screen="capture"] .mode-tabs button[aria-selected="true"] { background: #414743; color: #fff; }
+body.has-account .header { display: grid; grid-template-columns: minmax(100px, 1fr) auto minmax(60px, 1fr); }
+body.has-account .header .active-person { grid-column: 1; grid-row: 1; min-width: 0; }
+body.has-account .header .guide-button { grid-column: 3; grid-row: 1; justify-self: end; }
+body.has-account .header .mode-tabs { display: flex!important; position: static; transform: none; grid-column: 2; grid-row: 1; flex-direction: row; align-items: center; width: fit-content; max-width: 100%; padding: 5px; margin: 0; border: 0; border-radius: 999px; gap: 4px; background: #ededed; }
+body.has-account .header .mode-tabs button { padding: 12px 18px; min-height: 44px; border: 0; border-radius: 999px; text-align: center; white-space: nowrap; background: transparent; color: #555; font: 14px/1.4 var(--font); }
+body.has-account .header .mode-tabs button[aria-selected="true"] { background: #242424; color: #fff; }
+body.has-account:not([data-account-screen="capture"]) .header .mode-tabs { display: none!important; }
+body.has-account .header .mode-tabs button:focus-visible { outline: 2px solid #242424; outline-offset: 2px; }
 .sidebar-bottom { margin-top: auto; padding-top: 32px; }
 .sidebar-identity { display: flex; gap: 11px; align-items: center; margin-top: 22px; padding: 18px 10px 0; border-top: 1px solid #474c48; overflow-wrap: anywhere; }
 .sidebar-avatar { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; background: #e9e9e3; color: #262926; font-weight: 550; }
@@ -124,6 +129,11 @@ body.has-account .record-save .button { padding: 8px 12px; min-height: 40px; bor
 @media (max-width: 1000px) {
   body.has-account { padding-left: 0; }
   body.has-account .header { height: 72px; padding-inline: 24px; gap: 14px; }
+  body.has-account .header { grid-template-columns: 44px minmax(0, 1fr) auto; }
+  body.has-account .header .workspace-menu { grid-column: 1; grid-row: 1; }
+  body.has-account .header .active-person { grid-column: 2; }
+  body.has-account[data-account-screen="capture"] .header { height: auto; min-height: 72px; padding-block: 12px; gap: 10px 14px; }
+  body.has-account .header .mode-tabs { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
   .workspace-menu { display: block; }
   body.has-account .account-bar { visibility: hidden; transform: translateX(-100%); }
   body.has-account.navigation-open .account-bar { visibility: visible; transform: translateX(0); }
@@ -134,6 +144,7 @@ body.has-account .record-save .button { padding: 8px 12px; min-height: 40px; bor
 @media (max-width: 700px) {
   body.has-account .header { padding-inline: 16px; gap: 10px; }
   body.has-account .header .guide-button { gap: 5px; font-size: 13px; }
+  body.has-account .header .mode-tabs button { padding-inline: 10px; font-size: 12px; }
   body.has-account .active-person { font-size: 12px; }
   body.has-account .account-app { padding: 24px 20px 48px; }
   body.has-account #workspace, body.has-account #review-page { padding-inline: 20px; }
@@ -152,3 +163,51 @@ body.has-account .header .guide-button { order: 2; }
 
 .sidebar-close { display: none; position: absolute; top: 24px; right: 14px; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: #fff; font-size: 26px; }
 @media (max-width: 1000px) { .sidebar-close { display: block; } }
+
+/* The sign-in choice fits the viewport; saved identities have their own page. */
+body[data-account-screen="welcome"] .setup-layout { min-height: calc(100dvh - var(--setup-header-height, 88px)); }
+body[data-account-screen="welcome"] .setup-story { min-height: 0; }
+body[data-account-screen="welcome"] .setup-sheet { min-height: 0; padding: 24px clamp(24px, 4vw, 64px); }
+body[data-account-screen="welcome"] .setup-sheet h1 { font-size: clamp(28px, 2.7vw, 38px); margin-block: 8px 12px; }
+body[data-account-screen="welcome"] .account-lead { font-size: 15px; line-height: 1.4; margin-bottom: 16px; }
+body[data-account-screen="welcome"] .audience-choices { margin-block: 16px; gap: 8px; }
+body[data-account-screen="welcome"] .audience-choices .button { padding: 12px 16px; gap: 4px 12px; }
+body[data-account-screen="welcome"] .audience-choices strong { font-size: 18px; }
+body[data-account-screen="welcome"] .audience-choices span:not(.choice-arrow) { font-size: 14px; line-height: 1.35; }
+body[data-account-screen="welcome"] .setup-sheet > .button { min-height: 44px; padding: 10px 16px; }
+.welcome-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.welcome-tools .button { min-height: 44px; padding: 10px 16px; }
+.welcome-footer { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 16px; }
+.account-app .restore-backup-link { border: 0; background: transparent; padding: 8px 0 8px 16px; min-height: 44px; color: #595959; font-size: 13px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.account-app .restore-backup-link:hover { color: #202020; }
+.account-app .restore-backup-link:focus-visible { outline: 2px solid #242424; outline-offset: 3px; }
+body[data-account-screen="welcome"] .setup-sheet { display: flex; flex-direction: column; height: calc(100dvh - var(--setup-header-height, 88px)); padding-block: 20px; }
+body[data-account-screen="welcome"] .setup-sheet > * { width: 100%; flex-shrink: 0; }
+body[data-account-screen="welcome"] .setup-sheet h1 { text-wrap: initial; }
+body[data-account-screen="welcome"] .account-note { font-size: 12px; line-height: 1.4; margin-block: 12px; }
+body[data-account-screen="saved-profiles"] { background: #fff; }
+body[data-account-screen="saved-profiles"] .account-app { max-width: none; padding: 0; }
+body[data-account-screen="saved-profiles"] .checkbox-field { margin-block: 24px; }
+body[data-account-screen="saved-profiles"] .saved-identities { margin-top: 24px; }
+.john-demo-checkin { margin-bottom: 24px; padding: 20px; background: #eee; border-radius: 12px; font: 15px/1.5 var(--font); }
+.john-demo-checkin p { margin-block: 8px 16px; max-width: 70ch; }
+@media (max-height: 700px) {
+  body[data-account-screen="welcome"] .header { height: 64px; min-height: 0; padding-block: 8px; }
+  body[data-account-screen="welcome"] .setup-sheet { padding-block: 16px; }
+  body[data-account-screen="welcome"] .setup-sheet h1 { font-size: 24px; margin-block: 4px 8px; }
+  body[data-account-screen="welcome"] .account-kicker, body[data-account-screen="welcome"] .account-lead { display: none; }
+  body[data-account-screen="welcome"] .audience-choices { margin-block: 8px; gap: 4px; }
+  body[data-account-screen="welcome"] .audience-choices span:not(.choice-arrow) { display: none; }
+  body[data-account-screen="welcome"] .choice-arrow { grid-row: 1; }
+  body[data-account-screen="welcome"] .audience-choices .button { min-height: 44px; padding-block: 6px; }
+  body[data-account-screen="welcome"] .welcome-footer { padding-top: 0; }
+}
+@media (max-height: 500px) and (min-width: 701px) {
+  body[data-account-screen="welcome"] .setup-layout { display: block; }
+  body[data-account-screen="welcome"] .setup-story { display: none; }
+  body[data-account-screen="welcome"] .setup-sheet { max-width: 900px; margin-inline: auto; }
+  body[data-account-screen="welcome"] .audience-choices { grid-template-columns: repeat(2, 1fr); }
+  body[data-account-screen="welcome"] .audience-choices .button { display: flex; align-items: center; justify-content: space-between; }
+  body[data-account-screen="welcome"] .audience-choices strong { font-size: 16px; }
+  body[data-account-screen="welcome"] .choice-arrow { font-size: 12px; }
+}

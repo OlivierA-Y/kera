@@ -83,6 +83,17 @@ export function openRecords(filename) {
     return {identity:a,memberships,organizations,facilities:all('facilities').filter(f=>memberships.some(m=>m.organization_id===f.organization_id)),profiles};
   }
   function listIdentities(){return all('identities').map(({id,name,kind,complete})=>({id,name,kind,complete}));}
+  function demoWorkspace(){
+    const key='kera-interactive-demo';
+    return transaction(()=>{
+      let identity=get('identities',key);
+      if(!identity){
+        const created_at=now();identity={id:key,kind:'personal',name:'Demo',email:'',job_role:'',complete:true,draft:{},created_at};put('identities',identity);
+        const p={id:'kera-interactive-demo-profile',identity_id:key,organization_id:null,name:'Demo',age:null,age_as_of:created_at,sex:'',pregnancy:'',conditions:'',medications:'',changes:'',history_unknown:true,created_at};put('profiles',p,{identity_id:key,organization_id:null});
+      }
+      return workspace(identity);
+    });
+  }
   function createIdentity(b){
     keys(b,['kind','name','email','job_role']);if(!['personal','worker'].includes(b.kind))fail('Choose Personal or Care team.');
     const email=text(b.email,254,true);if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail('Enter a valid email address. It is not verified in this demo.');
@@ -182,7 +193,7 @@ export function openRecords(filename) {
   }
   function saveDraftValidation(draft){keys(draft,['step','fields']);if(Object.keys(draft).length){if(!Number.isInteger(draft.step)||draft.step<0||draft.step>3)fail('Invalid backup onboarding step.');keys(draft.fields,['name','email','job_role','age','sex','pregnancy','conditions','medications','changes','history_unknown','organization_name','care_setting','facility_name','timezone','invite']);}}
   function previewInvite(token){const v=get('invitations',token);if(!v||v.revoked||v.used_by||Date.parse(v.expires_at)<=Date.now())fail('This invitation has expired or was already used.',404);return {organization:get('organizations',v.organization_id),facility:all('facilities','WHERE organization_id=?',v.organization_id)[0],role:'worker'};}
-  return {close:()=>db.close(),actor,workspace,listIdentities,createIdentity,saveDraft,complete,saveProfile,saveResult,results,updateResult,deleteResult,team,invite,invitations,revoke,deactivate,backup,restore,previewInvite};
+  return {close:()=>db.close(),actor,workspace,listIdentities,demoWorkspace,createIdentity,saveDraft,complete,saveProfile,saveResult,results,updateResult,deleteResult,team,invite,invitations,revoke,deactivate,backup,restore,previewInvite};
 }
 
 /** The only place to replace demo selection with a verified session in future. */
@@ -195,6 +206,7 @@ export function recordsAPI(store,req,url,body) {
   const p=url.pathname,method=req.method;
   if(p==='/api/accounts'&&method==='GET')return {identities:store.listIdentities()};
   if(p==='/api/accounts'&&method==='POST')return store.createIdentity(body);
+  if(p==='/api/demo-workspace'&&method==='POST')return store.demoWorkspace();
   if(p==='/api/restore'&&method==='POST')return store.restore(body);
   if(p.startsWith('/api/invitation/')&&method==='GET')return store.previewInvite(p.split('/').at(-1));
   const a=resolveDemoIdentity(req,store);

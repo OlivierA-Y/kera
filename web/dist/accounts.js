@@ -15,7 +15,8 @@ const remember=(key,value,persistent=true)=>{document.cookie=`${key}=${encodeURI
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 const dateLabel=(v,zone)=>new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short',...(zone?{timeZone:zone}:{})}).format(new Date(v));
 const localDay=(value,zone)=>new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit',...(zone?{timeZone:zone}:{})}).format(new Date(value));
-const kinds={hb:'Hemoglobin',visual:'Visual Health Review'};
+const kinds={hb:'Hemoglobin levels',visual:'Nail Health Analysis'};
+const demoIdentity='kera-interactive-demo';
 const profileFields=['name','age','sex','pregnancy','conditions','medications','changes','history_unknown'];
 export function createAccountExperience({resetCapture}) {
   let identityId=readCookie(cookieKey),guest=false,rememberProfile=true,workspace=null,person=null,screen='welcome',draftStep=0,fields={},flowKind='personal',editing=false,pendingSave=null,saveGeneration=0;
@@ -26,7 +27,7 @@ export function createAccountExperience({resetCapture}) {
   const status=node('div',undefined,'record-save');status.id='record-save';status.setAttribute('role','status');root.before(status);status.hidden=true;
   const errorBox=node('p',undefined,'account-error');errorBox.setAttribute('role','alert');errorBox.hidden=true;
   const activeLabel=node('p',undefined,'active-person');setupHeader.append(activeLabel);activeLabel.hidden=true;
-  const modeTabs=document.querySelector('.mode-tabs'),originalModeParent=modeTabs.parentElement;modeTabs.setAttribute('aria-orientation','vertical');
+  const modeTabs=document.querySelector('.mode-tabs'),originalModeParent=modeTabs.parentElement;modeTabs.setAttribute('aria-orientation','horizontal');
   const menu= node('button','☰','workspace-menu');menu.type='button';menu.setAttribute('aria-label','Open navigation');menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-controls','workspace-navigation');menu.hidden=true;setupHeader.prepend(menu);bar.id='workspace-navigation';
   const backdrop=node('button',undefined,'workspace-backdrop');backdrop.type='button';backdrop.setAttribute('aria-label','Close navigation');backdrop.hidden=true;bar.after(backdrop);
   const narrow=matchMedia('(max-width: 1000px)');let drawerOpen=false;
@@ -35,7 +36,7 @@ export function createAccountExperience({resetCapture}) {
   document.addEventListener('keydown',e=>{if(!drawerOpen)return;if(e.key==='Escape'){e.preventDefault();drawer(false);}if(e.key==='Tab'){const focusable=[...bar.querySelectorAll('button:not([disabled]),a[href]')].filter(n=>n.getClientRects().length);const i=focusable.indexOf(document.activeElement);if(e.shiftKey&&i===0){e.preventDefault();focusable.at(-1).focus();}else if(!e.shiftKey&&i===focusable.length-1){e.preventDefault();focusable[0].focus();}}});
   modeTabs.addEventListener('keydown',e=>{if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End'].includes(e.key)||!workspace?.identity.complete||!person||screen==='capture')return;resetCapture();go('capture');},true);
   modeTabs.addEventListener('click',e=>{if(!e.target.closest('button')||!workspace?.identity.complete)return;if(!person){e.stopImmediatePropagation();void dashboard();drawer(false);return;}if(screen!=='capture'){resetCapture();go('capture');}drawer(false);},true);
-  const iconPaths={Dashboard:'M3 10 12 3l9 7v10H3z M9 20v-7h6v7',History:'M3 12a9 9 0 1 0 3-7 M3 3v6h6 M12 7v5l3 2',Team:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M18 8v6 M15 11h6',Settings:'M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5.6 5.6l2.1 2.1 M16.3 16.3l2.1 2.1 M5.6 18.4l2.1-2.1 M16.3 7.7l2.1-2.1 M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0','Sign out':'M9 3H3v18h6 M9 12h12 M17 8l4 4-4 4'};
+  const iconPaths={'Health checker':'M12 4v16 M4 12h16 M3 3h18v18H3z',Dashboard:'M3 10 12 3l9 7v10H3z M9 20v-7h6v7',History:'M3 12a9 9 0 1 0 3-7 M3 3v6h6 M12 7v5l3 2',Team:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M18 8v6 M15 11h6',Settings:'M12 3v3 M12 18v3 M3 12h3 M18 12h3 M5.6 5.6l2.1 2.1 M16.3 16.3l2.1 2.1 M5.6 18.4l2.1-2.1 M16.3 7.7l2.1-2.1 M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0','Sign out':'M9 3H3v18h6 M9 12h12 M17 8l4 4-4 4'};
   function navButton(label,fn,current){const b=action(label,async()=>{drawer(false);await fn();},true);const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',iconPaths[label]);svg.append(path);b.prepend(svg);if(current)b.setAttribute('aria-current','page');return b;}
 
   const csrfHeaders=()=>({'Content-Type':'application/json',...(identityId?{'X-Kera-Identity':identityId}:{})});
@@ -47,28 +48,29 @@ export function createAccountExperience({resetCapture}) {
   function action(label,fn,secondary=false){const b=node('button',label,'button '+(secondary?'secondary-button':'dark-button'));b.type='button';b.addEventListener('click',async()=>{b.disabled=true;errorBox.hidden=true;try{await fn();}catch(e){feedback(e);}finally{b.disabled=false;}});return b;}
   function content(){root.replaceChildren();errorBox.hidden=true;root.append(errorBox);}
   function go(next){
+    if(next!=='capture')document.getElementById('john-demo-checkin')?.remove();
     if(screen==='capture'&&next!=='capture'){resetCapture();status.hidden=true;pendingSave=null;saveGeneration++;}
     screen=next;document.body.dataset.accountScreen=next;root.hidden=next==='capture';
     $('workspace').hidden=next!=='capture';$('review-page').hidden=true;
     if(location.hash==='#review')history.replaceState(null,'',location.pathname+location.search);
     document.querySelector('.skip-link').href=next==='capture'?'#workspace':'#account-app';
     document.querySelector('.skip-link').textContent=next==='capture'?'Skip to camera':'Skip to content';
-    activeLabel.hidden=!workspace?.identity.complete;activeLabel.textContent=person?`${workspace?.identity.kind==='worker'?'Resident':'Personal profile'}: ${person.name}`:(workspace?.organizations?.[0]?.name||'Care workspace');
+    activeLabel.hidden=!workspace?.identity.complete;activeLabel.textContent=person?`${guest?'Demo profile':workspace?.identity.kind==='worker'?'Resident':'Personal profile'}: ${person.name}`:(workspace?.organizations?.[0]?.name||'Care workspace');
     renderBar();window.scrollTo({top:0,behavior:'instant'});
   }
   function renderBar(){
-    const logged=Boolean(workspace?.identity.complete);document.body.classList.toggle('has-account',logged);bar.hidden=!logged;menu.hidden=!logged;modeTabs.remove();bar.replaceChildren();drawer(false);
+    const logged=Boolean(workspace?.identity.complete);document.body.classList.toggle('has-account',logged);bar.hidden=!logged;menu.hidden=!logged;originalModeParent.append(modeTabs);bar.replaceChildren();drawer(false);
     if(!logged){originalModeParent.append(modeTabs);return;}
     const brand=document.querySelector('.header .brand').cloneNode(true);brand.className='sidebar-brand';brand.removeAttribute('id');brand.setAttribute('aria-label','Kera dashboard');brand.addEventListener('click',e=>{e.preventDefault();drawer(false);void dashboard();});bar.append(brand);const close=node('button','×','sidebar-close');close.type='button';close.setAttribute('aria-label','Close navigation');close.addEventListener('click',()=>drawer(false));bar.append(close);
     bar.append(node('p',workspace.identity.kind==='worker'?'Care workspace':'Your workspace','sidebar-label'));
     const main=node('div',undefined,'sidebar-links');main.append(navButton('Dashboard',dashboard,screen==='dashboard'),navButton('History',()=>person?historyView():dashboard(),['history','detail','compare'].includes(screen)));if(workspace.identity.kind==='worker')main.append(navButton('Team',teamView,screen==='team'));bar.append(main);
-    bar.append(node('p','New check-in','sidebar-label'),modeTabs);
+    const checker=navButton('Health checker',async()=>{if(!person)return dashboard();if(screen!=='capture')await capture(person);},screen==='capture');bar.append(checker);
     const bottom=node('div',undefined,'sidebar-bottom');bottom.append(navButton('Settings',settings,screen==='settings'),navButton('Sign out',signOut,false));
-    const identity=node('div',undefined,'sidebar-identity');identity.append(node('span',workspace.identity.name.slice(0,1).toUpperCase(),'sidebar-avatar'),node('div',workspace.identity.name));identity.lastChild.append(node('small',workspace.identity.kind==='worker'?(workspace.organizations[0]?.name||'Care team'):'Individual profile'));bottom.append(identity);bar.append(bottom);
+    const identity=node('div',undefined,'sidebar-identity');identity.append(node('span',workspace.identity.name.slice(0,1).toUpperCase(),'sidebar-avatar'),node('div',workspace.identity.name));identity.lastChild.append(node('small',guest?'Demo profile':workspace.identity.kind==='worker'?(workspace.organizations[0]?.name||'Care team'):'Individual profile'));bottom.append(identity);bar.append(bottom);
   }
   async function refresh(){workspace=await api('account');person=workspace.profiles.find(p=>p.id===person?.id)||workspace.profiles.find(p=>p.id===readCookie(personKey))||workspace.profiles[0]||null;}
-  async function choose(id){guest=false;clearTimeout(debounce);flowGeneration++;resetCapture();identityId=id;remember(cookieKey,id,rememberProfile);await refresh();if(workspace.identity.complete)await dashboard();else{flowKind=workspace.identity.kind;fields={name:workspace.identity.name,email:workspace.identity.email,job_role:workspace.identity.job_role,...workspace.identity.draft?.fields};draftStep=workspace.identity.draft?.step||0;onboard();}}
-  async function signOut(){clearTimeout(debounce);flowGeneration++;resetCapture();document.cookie=`${cookieKey}=; Path=/; Max-Age=0; SameSite=Lax`;document.cookie=`${personKey}=; Path=/; Max-Age=0; SameSite=Lax`;workspace=null;identityId='';person=null;pendingSave=null;saveGeneration++;status.hidden=true;await welcome();}
+  async function choose(id){if(id===demoIdentity){demoMode();return;}guest=false;clearTimeout(debounce);flowGeneration++;resetCapture();identityId=id;remember(cookieKey,id,rememberProfile);await refresh();if(workspace.identity.complete)await dashboard();else{flowKind=workspace.identity.kind;fields={name:workspace.identity.name,email:workspace.identity.email,job_role:workspace.identity.job_role,...workspace.identity.draft?.fields};draftStep=workspace.identity.draft?.step||0;onboard();}}
+  async function signOut(){if(guest){resetCapture();location.assign('/?signin=1');return;}clearTimeout(debounce);flowGeneration++;resetCapture();document.cookie=`${cookieKey}=; Path=/; Max-Age=0; SameSite=Lax`;document.cookie=`${personKey}=; Path=/; Max-Age=0; SameSite=Lax`;workspace=null;identityId='';person=null;pendingSave=null;saveGeneration++;status.hidden=true;await welcome();}
   function split(title,description){
     content();const layout=node('div',undefined,'setup-layout'),aside=node('aside',undefined,'setup-story');
     aside.append(node('p','Kera / A closer look.','setup-brand'),node('h2',workspace?.identity.kind==='worker'||flowKind==='worker'?'A clearer picture.\nAcross every check-in.':'Start with today.\nUnderstand changes over time.'),node('p','Your observations, thoughtfully kept together. No photos saved to your history.'));
@@ -80,12 +82,21 @@ export function createAccountExperience({resetCapture}) {
     const choices=node('div',undefined,'audience-choices');
     for(const [kind,title,desc] of [['personal','Individual','Track my own hemoglobin estimates and visual observations.'],['worker','Healthcare worker','Manage residents and review their observations over time.']]){
       const b=action('',()=>{flowKind=kind;fields={};draftStep=0;workspace=null;onboard();},true);b.dataset.audience=kind;b.append(node('strong',title),node('span',desc),node('span','Continue →','choice-arrow'));choices.append(b);
-    }const demo=action('',()=>demoMode(),true);demo.id='demo-entry';demo.classList.add('demo-entry');demo.append(node('strong','Demo'),node('span','Try both analyses now. No onboarding, profile or saved history.'),node('span','Try now →','choice-arrow'));choices.append(demo);sheet.append(choices);
-    const {identities}=await api('accounts').catch(()=>({identities:[]}));
-    if(identities.length){sheet.append(node('h2','Continue a saved profile','saved-heading'));const list=node('div',undefined,'saved-identities');for(const i of identities){const b=action('',()=>choose(i.id),true);b.dataset.identity=i.id;b.append(node('strong',i.name),node('span',`${i.kind==='worker'?'Care team':'Personal'}${i.complete?'':' · Finish setup'}`));list.append(b);}sheet.append(list);}
-    const label=node('label',undefined,'checkbox-field');const c=node('input');c.type='checkbox';c.id='remember-demo';c.checked=rememberProfile;c.addEventListener('change',()=>rememberProfile=c.checked);label.append(c,node('span','Remember my profile for 30 days on this browser'));sheet.append(label,node('p','Demo profile selection does not verify identity. Use demonstration data. Records are stored by this local Kera server.','account-note'));
-    const restore=node('input');restore.type='file';restore.accept='.json,application/json';restore.id='welcome-restore';restore.hidden=true;restore.addEventListener('change',()=>void restoreFile(restore));sheet.append(restore,action('Restore a Kera backup',()=>restore.click(),true));
+    }const demo=action('',()=>demoMode(),true);demo.id='demo-entry';demo.classList.add('demo-entry');demo.append(node('strong','Demo'),node('span','Try both analyses and keep your demo results in history. No onboarding.'),node('span','Try now →','choice-arrow'));choices.append(demo);
+    const saved=action('',openSavedProfiles,true);saved.id='saved-profiles-entry';saved.append(node('strong','Saved profiles'),node('span','Return to your workspace and saved observations.'),node('span','Continue →','choice-arrow'));saved.setAttribute('aria-label','Saved profiles');choices.append(saved);sheet.append(choices);
+    const restore=node('input');restore.type='file';restore.accept='.json,application/json';restore.id='welcome-restore';restore.hidden=true;restore.addEventListener('change',()=>void restoreFile(restore));const footer=node('div',undefined,'welcome-footer');const restoreAction=action('Restore backup',()=>restore.click(),true);restoreAction.className='restore-backup-link';footer.append(restore,restoreAction);sheet.append(node('p','Demo profile selection does not verify identity. Use demonstration data. Records are stored by this local Kera server.','account-note'),footer);
   }
+  function openSavedProfiles(){history.pushState(null,'','#saved-profiles');return savedProfiles();}
+  async function savedProfiles(){
+    go('saved-profiles');const sheet=split('Saved profiles.','Choose a profile to return to its saved workspace and history.');
+    sheet.append(action('← Back to sign in',()=>{history.replaceState(null,'',location.pathname+location.search);return welcome();},true));
+    const label=node('label',undefined,'checkbox-field'),c=node('input');c.type='checkbox';c.id='remember-demo';c.checked=rememberProfile;c.addEventListener('change',()=>rememberProfile=c.checked);label.append(c,node('span','Remember my profile for 30 days on this browser'));sheet.append(label);
+    const {identities}=await api('accounts');if(screen!=='saved-profiles')return;
+    const list=node('div',undefined,'saved-identities');
+    for(const i of identities){const b=action('',()=>{history.replaceState(null,'',location.pathname+location.search);return choose(i.id);},true);b.dataset.identity=i.id;b.append(node('strong',i.name),node('span',`${i.id===demoIdentity?'Demo':i.kind==='worker'?'Care team':'Personal'}${i.complete?'':' · Finish setup'}`));list.append(b);}
+    if(!identities.length)list.append(node('p','No saved profiles yet. Go back to create one.','account-empty'));sheet.append(list);
+  }
+  addEventListener('popstate',()=>{if(!workspace?.identity.complete)void (location.hash==='#saved-profiles'?savedProfiles():welcome()).catch(feedback);});
   function field(form,name,label,{type='text',options,required=false,value=fields[name]??'',help}={}){
     const wrap=node('label',undefined,'account-field');wrap.append(node('span',label));let input;
     if(options){input=node('select');if(!value&&options.every(v=>typeof v==='string'&&v!=='')){const placeholder=node('option','Choose an option');placeholder.value='';input.append(placeholder);}for(const v of options){const o=node('option',typeof v==='string'?v:v.label);o.value=typeof v==='string'?v:v.value;input.append(o);}}
@@ -132,7 +143,7 @@ export function createAccountExperience({resetCapture}) {
         const unknown=node('label',undefined,'checkbox-field'),c=node('input');c.type='checkbox';c.name='history_unknown';c.checked=fields.history_unknown===true;unknown.append(c,node('span','History unknown / prefer not to provide it'));form.append(unknown,node('p','Your background is context, not a diagnosis or an adjustment to the model. You can change these details later.','account-note'));
       }
     }
-    if(draftStep===2){form.append(node('h2',worker?'A shared place for each resident.':'Your history begins with one check-in.'),node('p',worker?'Add residents from your dashboard. Each has their own background, check-ins and saved results. Invite colleagues when you’re ready.':'Take a photo for an experimental hemoglobin estimate or a Visual Health Review. Completed results will appear in your history.'),node('p','Kera saves the numbers and observations. Photos are temporary and are not included in history.','account-note'));}
+    if(draftStep===2){form.append(node('h2',worker?'A shared place for each resident.':'Your history begins with one check-in.'),node('p',worker?'Add residents from your dashboard. Each has their own background, check-ins and saved results. Invite colleagues when you’re ready.':'Take a photo for an experimental hemoglobin estimate or Nail Health Analysis. Completed results will appear in your history.'),node('p','Kera saves the numbers and observations. Photos are temporary and are not included in history.','account-note'));}
     const foot=node('div',undefined,'setup-actions');const back=action('Back',async()=>{fields={...fields,...collect(form)};if(draftStep){draftStep--;await persistDraft();onboard();}else await welcome();},true);foot.append(back);
     if(draftStep===1&&!worker)foot.append(action('Skip background',async()=>{fields={...fields,conditions:'',medications:'',changes:'',history_unknown:true};draftStep=2;await persistDraft();onboard();},true));
     const submit=node('button',draftStep===2?'Open my workspace':'Continue','button dark-button');submit.type='submit';foot.append(submit);form.append(foot);
@@ -152,21 +163,33 @@ export function createAccountExperience({resetCapture}) {
       }catch(e){feedback(e);}finally{submit.disabled=false;}
     });
   }
-  function heading(title,description){content();const h=node('div',undefined,'account-page-heading');h.append(node('p',workspace?.identity.kind==='worker'?'CARE TEAM':'PERSONAL','account-kicker'),node('h1',title),node('p',description,'account-lead'));root.append(h);const titleNode=h.querySelector('h1');titleNode.tabIndex=-1;queueMicrotask(()=>titleNode.isConnected&&titleNode.focus({preventScroll:true}));return h;}
+  function heading(title,description){content();const h=node('div',undefined,'account-page-heading');h.append(node('p',guest?'DEMO':workspace?.identity.kind==='worker'?'CARE TEAM':'PERSONAL','account-kicker'),node('h1',title),node('p',description,'account-lead'));root.append(h);const titleNode=h.querySelector('h1');titleNode.tabIndex=-1;queueMicrotask(()=>titleNode.isConnected&&titleNode.focus({preventScroll:true}));return h;}
   async function dashboard(){
-    go('dashboard');await refresh();const worker=workspace.identity.kind==='worker';heading(worker?'Your residents.':'A closer look, over time.',worker?'Each resident has their own background, check-ins and history.':'Start a check-in or revisit your saved observations.');
+    go('dashboard');await refresh();const worker=workspace.identity.kind==='worker';heading(worker?'Your residents.':guest?'Your demo workspace.':'A closer look, over time.',worker?'Each resident has their own background, check-ins and history.':'Start a check-in or revisit your saved observations.');
     if(worker){
       const tools=node('div',undefined,'page-tools'),search=node('input');search.type='search';search.placeholder='Search residents';search.setAttribute('aria-label','Search residents');tools.append(search,action('Add resident',()=>profileForm(),false));root.append(tools);
       const list=node('div',undefined,'resident-list');root.append(list);
       const render=()=>{list.replaceChildren();const profiles=workspace.profiles.filter(p=>p.name.toLowerCase().includes(search.value.toLowerCase()));if(!profiles.length)list.append(node('div',search.value?'No residents match this search.':'No residents yet. Add your first resident to start their history.','account-empty'));for(const p of profiles){const row=node('article',undefined,'resident-row'),info=node('div');info.append(node('h2',p.name),node('p',`${p.age===null?'Age unknown':p.age+' years'}${p.sex?' · '+sexLabel(p.sex):''}`));const actions=node('div',undefined,'row-actions');actions.append(action('New check-in',()=>capture(p)),action('History',async()=>{await selectPerson(p);await historyView();},true),action('Edit profile',()=>profileForm(p),true));row.append(info,actions);list.append(row);}};search.addEventListener('input',render);render();
     }else if(person){
       const band=node('section',undefined,'personal-start');band.append(node('h2',`Hello, ${person.name}.`),node('p','A nail photo for an experimental Hb estimate, or a closer look at visible skin and nail changes.'));
-      const actions=node('div',undefined,'row-actions');actions.append(action('Start a check-in',()=>capture(person)),action('View history',historyView,true),action('Edit my profile',()=>profileForm(person),true));band.append(actions);root.append(band);
+      const actions=node('div',undefined,'row-actions');actions.append(action('Start a check-in',()=>capture(person)),action('View history',historyView,true),...(guest?[]:[action('Edit my profile',()=>profileForm(person),true)]));band.append(actions);root.append(band);
       const recent=(await api(`profiles/${person.id}/results`)).results.slice(0,3);root.append(node('h2','Recent check-ins','section-heading'));if(!recent.length)root.append(node('p','Your first completed check-in will appear here. Photos are never saved to history.','account-empty'));else for(const r of recent)root.append(resultRow(r,false));
     }
   }
-  async function selectPerson(p){if(person?.id!==p.id){resetCapture();saveGeneration++;pendingSave=null;status.hidden=true;}person=p;remember(personKey,p.id,rememberProfile);}
-  async function capture(p){await selectPerson(p);resetCapture();go('capture');$('workspace').hidden=false;}
+  async function selectPerson(p){if(person?.id!==p.id){resetCapture();saveGeneration++;pendingSave=null;status.hidden=true;}person=p;if(!guest)remember(personKey,p.id,rememberProfile);}
+  async function capture(p){
+    await selectPerson(p);resetCapture();go('capture');$('workspace').hidden=false;
+    document.getElementById('john-demo-checkin')?.remove();
+    if(workspace.identity.id==='kera-demo-worker-2026-10-18'&&p.id==='kera-demo-resident-john'){
+      const banner=node('section',undefined,'john-demo-checkin');banner.id='john-demo-checkin';
+      banner.append(node('strong','Fictional demo: John’s weekly check-in'),node('p','John says he feels as usual. Capture a real photo below, or use the labeled simulated scenario: 112 g/L versus his usual 145–154 g/L.'));
+      banner.append(action('Save simulated demo check-in',async()=>{
+        const r=await api(`profiles/${p.id}/results`,'POST',{kind:'hb',source_id:'john-simulated-demo-'+localDay(new Date(),workspace.organizations[0]?.timezone),captured_at:new Date().toISOString(),model:'SIMULATED demo scenario v1',provider:'Fictional demo fixture, no inference',data:{readings:[{id:'john-simulated-reading',hemoglobin_g_per_l:112,warnings:['SIMULATED demo value. Not a measured or inferred result.']}],insights:{summary:'Simulated scenario: John feels as usual, but this estimate is below his previous 145–154 g/L readings. Ask a clinician to review the change and arrange a confirmatory blood test.',considerations:[{reported_detail:'John reports feeling as usual today.',why_it_matters:'Feeling as usual does not explain or confirm the lower simulated estimate.',question_for_clinician:'Would a complete blood count help check this change?'}],limitations:'Fictional demonstration only. A photo estimate cannot confirm anemia or replace a laboratory blood test.'}}});
+        const saved=await api('results/'+r.id,'PATCH',{note:'FICTIONAL DEMO. John reports feeling as usual. Simulated lower estimate; care team to request clinical review and a confirmatory blood test.'});
+        banner.remove();detail(saved);
+      },true));$('workspace').prepend(banner);
+    }
+  }
   function profileForm(p=null){
     go('profile');editing=true;heading(p?'Edit profile.':'Add a resident.',p?'Changes apply to future check-ins. Earlier results keep their original background.':'This intake belongs to the resident, separate from your worker onboarding.');
     const form=node('form',undefined,'profile-form');form.id='profile-form';intake(form,p||{});root.append(form);const actions=node('div',undefined,'setup-actions');actions.append(action('Cancel',dashboard,true));const submit=node('button','Save profile','button dark-button');submit.type='submit';actions.append(submit);form.append(actions);
@@ -194,7 +217,7 @@ export function createAccountExperience({resetCapture}) {
   async function historyView(){
     go('history');if(!person)return dashboard();heading(`${person.name}’s history.`,'Every check-in, in one place. Review, compare or export your saved results. Photos are never saved.');
     const rows=(await api(`profiles/${person.id}/results`)).results;let filtered=rows,page=0;const selected=new Set(),pageSize=10;
-    const tools=node('form',undefined,'history-tools');const search=field(tools,'search','Search history',{type:'search',value:''});search.placeholder='Search results or notes';const from=field(tools,'from','From',{type:'date',value:''}),to=field(tools,'to','To',{type:'date',value:''});const kind=field(tools,'kind','Result type',{options:[{value:'',label:'All results'},{value:'hb',label:'Hemoglobin'},{value:'visual',label:'Visual Health Review'}],value:''});root.append(tools);
+    const tools=node('form',undefined,'history-tools');const search=field(tools,'search','Search history',{type:'search',value:''});search.placeholder='Search results or notes';const from=field(tools,'from','From',{type:'date',value:''}),to=field(tools,'to','To',{type:'date',value:''});const kind=field(tools,'kind','Result type',{options:[{value:'',label:'All results'},{value:'hb',label:'Hemoglobin levels'},{value:'visual',label:'Nail Health Analysis'}],value:''});root.append(tools);
     const toolbar=node('div',undefined,'history-toolbar'),count=node('p',undefined,'history-count');count.setAttribute('role','status');const actions=node('div',undefined,'row-actions');const csv=v=>'"'+String(/^\s*[=+\-@]|^[\t\r]/.test(String(v))?'\''+v:v).replaceAll('"','""')+'"';
     actions.append(action('Export JSON',()=>download('kera-results.json',JSON.stringify({format:'kera-results',version:1,profile:person,results:filtered},null,2)),true),action('Export CSV',()=>download('kera-results.csv',[['date','type','Hb (g/L)','quality','model','observations','note'],...filtered.map(r=>[r.captured_at,kinds[r.kind],r.kind==='hb'?r.data.hemoglobin_g_per_l:'',r.kind==='visual'?r.data.image_quality.assessment:r.data.warnings.join('; '),r.model,r.kind==='visual'?Object.entries(r.data.observations).map(([k,v])=>`${k}: ${v.status}: ${v.evidence}`).join('; '):'',r.note])].map(row=>row.map(csv).join(',')).join('\r\n'),'text/csv;charset=utf-8'),true));
     const compare=action('Compare two results',()=>{const chosen=rows.filter(r=>selected.has(r.id));if(chosen.length!==2||chosen[0].kind!==chosen[1].kind)throw Error('Select two results of the same type to compare.');compareView(chosen);},true);actions.append(compare);toolbar.append(count,actions);root.append(toolbar);
@@ -211,7 +234,7 @@ export function createAccountExperience({resetCapture}) {
         const table=node('table',undefined,'history-table'),caption=node('caption',`${person.name}’s saved check-ins`);caption.className='visually-hidden';table.append(caption);const head=node('thead'),header=node('tr');for(const label of ['Compare','Check-in','Date & time','Result','Context','']){const th=node('th',label);th.scope='col';if(label==='')th.setAttribute('aria-label','Open result');header.append(th);}head.append(header);table.append(head);const tbody=node('tbody');table.append(tbody);
         for(const r of filtered.slice(page*pageSize,(page+1)*pageSize)){
           const row=node('tr',undefined,'history-row'),selection=node('td'),check=node('input');check.type='checkbox';check.name='compare';check.value=r.id;check.checked=selected.has(r.id);check.setAttribute('aria-label',`Compare ${kinds[r.kind]} from ${dateLabel(r.captured_at)}`);check.addEventListener('change',()=>{check.checked?selected.add(r.id):selected.delete(r.id);count.textContent=`${filtered.length} check-in${filtered.length===1?'':'s'}${selected.size?' · '+selected.size+' selected':''}`;});selection.append(check);row.append(selection);
-          const type=node('td');type.append(node('strong',kinds[r.kind]),node('small',r.kind==='hb'?`${r.data.scan_count} reading(s)`:'Skin & nail observations'));row.append(type,node('td',dateLabel(r.captured_at,workspace.organizations[0]?.timezone),'history-date'));
+          const type=node('td');type.append(node('strong',kinds[r.kind]),node('small',r.kind==='hb'?`${r.data.scan_count} reading(s)`:'Nail Health Analysis observations'));row.append(type,node('td',dateLabel(r.captured_at,workspace.organizations[0]?.timezone),'history-date'));
           const result=node('td');result.append(node('strong',r.kind==='hb'?`${r.data.hemoglobin_g_per_l.toFixed(1)} g/L`:reviewHeadline(normalizeReview({...r.data,model:r.model,provider:r.provider}))));if(r.note)result.append(node('small','Note added'));row.append(result);
           const context=node('td');if(r.kind==='hb'){const summary=hemoglobinSummary(r.context,r.data.hemoglobin_g_per_l);context.append(node('span',summary.state==='unavailable'?'Reference unavailable':`${summary.state[0].toUpperCase()+summary.state.slice(1)} reference`,'history-badge'));}else context.append(node('span',r.data.image_quality.assessment+' photo detail','history-badge'));row.append(context);const open=node('td');open.append(action('Open result',()=>detail(r),true));row.append(open);tbody.append(row);
         }list.append(table);
@@ -222,10 +245,12 @@ export function createAccountExperience({resetCapture}) {
     tools.addEventListener('submit',e=>e.preventDefault());tools.addEventListener('input',()=>{page=0;render();});tools.addEventListener('change',()=>{page=0;render();});render();
   }
   function resultBody(r,target){
+    const simulated=r.model.startsWith('SIMULATED');
+    if(simulated)target.append(node('strong','Fictional demo data. No photo was analyzed.'));
     target.append(node('p',dateLabel(r.captured_at)),node('p',`${r.provider} · ${r.model}`,'account-note'));
     if(r.kind==='visual'){const view=node('div');target.append(view);createCareReview(view,{handoffId:'saved-handoff-'+r.id}).show({...r.data,model:r.model,provider:r.provider});}
-    else{target.append(node('h2',r.data.hemoglobin_g_per_l.toFixed(1)+' g/L','saved-hb'));const reference=node('div');appendHemoglobinSummary(reference,r.context,r.data.hemoglobin_g_per_l);target.append(reference);target.append(node('p',`${r.data.scan_count} reading(s) · experimental hemoglobin estimate`),node('p','The model’s held-out mean absolute error was 15.96 g/L. This is a group statistic, not an individual confidence interval. Low Hb may be overestimated. Confirm concerns with a clinician.','account-note'));const ul=node('ul');for(const w of r.data.warnings)ul.append(node('li',w));target.append(ul);const readings=node('details');readings.append(node('summary','Individual estimates'));const table=node('table'),head=node('tr');head.append(node('th','Reading'),node('th','g/L'));table.append(head);r.data.readings.forEach((v,i)=>{const row=node('tr');row.append(node('td',String(i+1)),node('td',v.hemoglobin_g_per_l.toFixed(1)));table.append(row);});readings.append(table);target.append(readings);}
-    if(r.data.insights){const insights=node('details');insights.append(node('summary','Health background insights'),node('p',r.data.insights.summary));for(const c of r.data.insights.considerations||[])insights.append(node('h3',c.reported_detail),node('p',c.why_it_matters),node('p',c.question_for_clinician));insights.append(node('p',r.data.insights.limitations,'account-note'));target.append(insights);}
+    else{target.append(node('h2',r.data.hemoglobin_g_per_l.toFixed(1)+' g/L','saved-hb'));const reference=node('div');appendHemoglobinSummary(reference,r.context,r.data.hemoglobin_g_per_l);target.append(reference);target.append(node('p',`${r.data.scan_count} reading(s) · experimental hemoglobin estimate`),node('p',simulated?'This value was generated for demonstration. It is not a model output or a blood-test result.':'The model’s held-out mean absolute error was 15.96 g/L. This is a group statistic, not an individual confidence interval. Low Hb may be overestimated. Confirm concerns with a clinician.','account-note'));const ul=node('ul');for(const w of r.data.warnings)ul.append(node('li',w));target.append(ul);const readings=node('details');readings.append(node('summary','Individual estimates'));const table=node('table'),head=node('tr');head.append(node('th','Reading'),node('th','g/L'));table.append(head);r.data.readings.forEach((v,i)=>{const row=node('tr');row.append(node('td',String(i+1)),node('td',v.hemoglobin_g_per_l.toFixed(1)));table.append(row);});readings.append(table);target.append(readings);}
+    if(r.data.insights){const insights=node('details');insights.open=r.model==='SIMULATED demo scenario v1';insights.append(node('summary','Health background insights'),node('p',r.data.insights.summary));for(const c of r.data.insights.considerations||[])insights.append(node('h3',c.reported_detail),node('p',c.why_it_matters),node('p',c.question_for_clinician));insights.append(node('p',r.data.insights.limitations,'account-note'));target.append(insights);}
     const context=node('details');context.append(node('summary','Background at this check-in'));for(const[k,v]of Object.entries(r.context))if(v!==''&&v!==null)context.append(node('p',`${k.replaceAll('_',' ')}: ${v}`));target.append(context);
   }
   function detail(r){
@@ -250,7 +275,7 @@ export function createAccountExperience({resetCapture}) {
     const restore=node('input');restore.type='file';restore.accept='.json,application/json';restore.id='settings-restore';restore.hidden=true;restore.addEventListener('change',()=>void restoreFile(restore));root.append(restore,action('Restore backup',()=>restore.click(),true),node('p','Backups include profile backgrounds, results and notes, without photos. Conflicting records are rejected; current data is never silently replaced.','account-note'),node('h2','Demo identity','section-heading'),node('p','No password or email verification is used. Selecting a profile does not prove identity. This local demo is for demonstration data. Real login and hosted storage can be added later.','settings-copy'));
   }
   function demoMode(){resetCapture();location.assign('/demo/?entry=1');}
-  function captureContext(){return !guest&&person&&workspace?{identityId,profileId:person.id,profileName:person.name,health:cleanContext(person)}:null;}
+  function captureContext(){return person&&workspace?{identityId,profileId:person.id,profileName:person.name,health:cleanContext(person),shareHealthContext:!guest}:null;}
   async function saveCompleted(context,result){
     if(!context)return;
     result={...result,profile_context:context.health};
@@ -262,8 +287,10 @@ export function createAccountExperience({resetCapture}) {
   }
   async function start(){
     try{
+      if(location.pathname.startsWith('/demo/')){guest=true;identityId='';workspace=await api('demo-workspace','POST',{});identityId=workspace.identity.id;person=workspace.profiles[0];go('capture');return;}
+      if(new URLSearchParams(location.search).has('signin')){identityId='';history.replaceState(null,'',location.pathname);await welcome();return;}
       const entryURL=new URL(location.href);if(entryURL.searchParams.has('demo')){entryURL.searchParams.delete('demo');history.replaceState(null,'',entryURL.pathname+entryURL.search+entryURL.hash);}
-      if(identityId){await choose(identityId);}else await welcome();
+      if(identityId){await choose(identityId);}else if(location.hash==='#saved-profiles')await savedProfiles();else await welcome();
       if(new URLSearchParams(location.search).get('invite')){
         if(workspace?.identity.complete){await welcome();feedback('Sign out and create a Care team demo profile to accept this invitation.');}
         else if(!workspace){flowKind='worker';fields={invite:new URLSearchParams(location.search).get('invite')};draftStep=0;onboard();}

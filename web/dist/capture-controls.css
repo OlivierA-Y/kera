@@ -20,25 +20,23 @@
 .camera-toolbar #upload-button.file-picker-button:disabled { background: #eeeeee; color: #626262; cursor: not-allowed; }
 #upload-button.file-picker-button svg { width: 20px; height: 20px; flex-shrink: 0; }
 #upload-button.file-picker-button #upload-label { text-decoration: none; }
-#scan-history { position: relative; }
-#scan-history h3 { padding-right: 52px; }
+.photo-selection-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-block: 16px; flex-wrap: wrap; }
+.current-photo-label { font-size: 14px; color: #595959; }
 #delete-session-photo.photo-delete-button {
-  position: absolute;
-  top: 0;
-  right: 0;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
   min-height: 44px;
-  padding: 0;
+  padding: 10px 16px;
   border: 1px solid #c8c8c8;
-  border-radius: 50%;
+  border-radius: 12px;
   background: #f3f3f3;
   color: #242424;
-  font-size: 28px;
+  font-size: 14px;
   font-weight: 400;
-  line-height: 1;
+  line-height: 1.4;
   text-decoration: none;
 }
 #delete-session-photo.photo-delete-button:hover:not(:disabled) { background: #e0e0e0; text-decoration: none; }

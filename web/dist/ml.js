@@ -20,14 +20,17 @@ export function centralBox(box) {
   if (inner[0] >= inner[2] || inner[1] >= inner[3]) throw new Error('That region is too small. Draw a larger region.');
   return inner;
 }
-function channels(image, box) {
+function channels(image, box, transform=null) {
   const [top, left, bottom, right] = validateBox(box, image.width, image.height);
   const out = [[], [], []];
   let extreme = 0;
   for (let y = top; y < bottom; y++) for (let x = left; x < right; x++) {
     const offset = (y * image.width + x) * 4;
+    const rgb=[image.data[offset],image.data[offset+1],image.data[offset+2]];
+    if(!rgb.every(value=>Number.isFinite(value)&&value>=0&&value<=255))throw new Error('The photo contains invalid color values.');
+    const corrected=transform?transform(rgb):rgb;
     for (let c = 0; c < 3; c++) {
-      const value = image.data[offset + c];
+      const value = corrected[c];
       if (!Number.isFinite(value) || value < 0 || value > 255) throw new Error('The photo contains invalid color values.');
       out[c].push(value);
       if (value <= 1 || value >= 254) extreme++;
@@ -36,7 +39,7 @@ function channels(image, box) {
   for (const values of out) values.sort((a, b) => a - b);
   return { values: out, extreme: extreme / (out[0].length * 3) };
 }
-export function extractFeatures(image, boxes) {
+export function extractFeatures(image, boxes, transform=null) {
   if (!image || !Number.isInteger(image.width) || !Number.isInteger(image.height) || image.data?.length !== image.width * image.height * 4) throw new Error('The captured photo could not be read.');
   for (const kind of ['nail', 'skin', 'white']) validateBox(boxes[kind], image.width, image.height);
   // Overlapping annotations usually mean the wrong tissue/reference was selected.
@@ -44,13 +47,13 @@ export function extractFeatures(image, boxes) {
     const x=boxes[a], y=boxes[b];
     if (Math.min(x[2],y[2]) > Math.max(x[0],y[0]) && Math.min(x[3],y[3]) > Math.max(x[1],y[1])) throw new Error('Choose separate, non-overlapping nail, skin, and white-reference regions.');
   }
-  const ref = channels(image, boxes.white);
+  const ref = channels(image, boxes.white, transform);
   const white = ref.values.map(values => percentile(values, 50));
   if (white.some(value => value < 5)) throw new Error('The white reference is too dark. Choose a well-lit area of plain white paper.');
   const warnings = [], features = [];
   for (const kind of ['nail', 'skin']) {
     const box = centralBox(boxes[kind]);
-    const { values, extreme } = channels(image, box);
+    const { values, extreme } = channels(image, box, transform);
     if (Math.min(box[2]-box[0], box[3]-box[1]) < 10) warnings.push(`The ${kind} region is small. Move closer for a clearer scan.`);
     if (extreme > .01) warnings.push(`The ${kind} region has clipped highlights or deep shadows.`);
     for (let c = 0; c < 3; c++) for (const p of PERCENTILES) features.push(percentile(values[c], p) / white[c]);

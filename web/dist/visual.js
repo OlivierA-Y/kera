@@ -72,7 +72,7 @@ export function initializeVisualAnalysis({getPhoto,getContext=()=>null,onResult=
   $('open-vision').addEventListener('click',()=>{
     feedback('');clearResults();const photo=getPhoto();if(!photo)return;
     try{topData=encodePhoto(photo);}catch(e){feedback(e.message);return;}
-    previewContext=getContext();const contextPreview=$('vision-context');contextPreview.replaceChildren();contextPreview.hidden=!previewContext;if(previewContext){const title=document.createElement('h3');title.textContent='Background included with this review';const details=document.createElement('pre');details.textContent=contextLines(previewContext.health);const note=document.createElement('p');note.textContent='Choosing Send photos also shares this background. Name and email are excluded. The AI uses it as reported context, not as a diagnosis.';contextPreview.append(title,details,note);}
+    previewContext=getContext();const contextPreview=$('vision-context');contextPreview.replaceChildren();contextPreview.hidden=!previewContext||previewContext.shareHealthContext===false;if(previewContext&&previewContext.shareHealthContext!==false){const title=document.createElement('h3');title.textContent='Background included with this review';const details=document.createElement('pre');details.textContent=contextLines(previewContext.health);const note=document.createElement('p');note.textContent='Choosing Send photos also shares this background. Name and email are excluded. The AI uses it as reported context, not as a diagnosis.';contextPreview.append(title,details,note);}
     consent.checked=false;$('top-preview').src=topData;$('top-preview').hidden=false;$('vision-preview-area').hidden=false;
     $('vision-remote-note').hidden=!remoteSent;
     dialog.showModal();checkServer();
@@ -95,7 +95,7 @@ export function initializeVisualAnalysis({getPhoto,getContext=()=>null,onResult=
     remoteSent=true;$('vision-remote-note').hidden=false;
     const timer=setTimeout(()=>requestController.abort('timeout'),55000);
     try{
-      const response=await fetch('./api/vision/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({consent:true,photos,...(recordContext?{profile_context:recordContext.health,context_consent:true}:{})}),signal:requestController.signal});
+      const response=await fetch('./api/vision/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({consent:true,photos,...(recordContext&&recordContext.shareHealthContext!==false?{profile_context:recordContext.health,context_consent:true}:{})}),signal:requestController.signal});
       let body;try{body=await response.json();}catch{throw new Error('The server returned an unreadable response. No observations are shown.');}
       if(current!==generation)return;
       if(!response.ok)throw new Error(body.error?.message||'Visual analysis could not complete. Try again.');

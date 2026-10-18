@@ -1,11 +1,16 @@
 /** Local-only enlarged region editor. Display zoom never changes source pixels. */
-const names={nail:'Middle nail',skin:'Nearby skin',white:'White reference'};
+const names={nail:'Middle nail',skin:'Nearby skin',white:'White reference',mlhM:'M orange/red',mlhL:'L blue',mlhH:'H yellow'};
 const $=id=>document.getElementById(id);
 export function initializeTouchRegions({getState,onSave}){
  const dialog=$('touch-editor'),canvas=$('touch-canvas'),ctx=canvas.getContext('2d');
  let kind='nail',source=null,draft=null,corner=null,pointer=null,tool='mark',zoom=1,scale=1,x=0,y=0,w=1,h=1;
  function message(text){$('touch-message').textContent=text;}
- function enabled(){return Boolean(draft)&&!corner;}
+ function enabled(){return Boolean(draft)&&!corner&&draft.every((value,index)=>value===getState().boxes[kind]?.[index]);}
+ function autosave(){
+  if(!draft||corner)return;
+  try{onSave(kind,draft.slice());message(names[kind]+' box saved. Adjust it or choose another region.');}
+  catch(e){message(e.message);}
+ }
  function draw(){
   if(!source||!dialog.open)return;
   const rect=canvas.getBoundingClientRect(),ratio=Math.min(devicePixelRatio||1,2);w=rect.width;h=rect.height;
@@ -15,6 +20,7 @@ export function initializeTouchRegions({getState,onSave}){
   if(draft)paint(draft,true);
   if(corner){ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x+corner.x*scale,y+corner.y*scale,9,0,Math.PI*2);ctx.stroke();}
   $('touch-save').disabled=!enabled();
+  $('touch-save').textContent=(getState().kinds||['nail','skin','white']).every(key=>getState().boxes[key])?'Done':'Next region';
   $('touch-readout').textContent=draft?`Width ${draft[3]-draft[1]} · Height ${draft[2]-draft[0]} photo pixels`:'Tap two opposite corners, or drag a box.';
  }
  function paint(box,active){
@@ -23,7 +29,7 @@ export function initializeTouchRegions({getState,onSave}){
   if(active){ctx.fillStyle='#fff';for(const [cx,cy] of [[bx,by],[bx+bw,by],[bx,by+bh],[bx+bw,by+bh]])ctx.fillRect(cx-4,cy-4,8,8);}
  }
  function fit(){scale=Math.min(w/source.width,h/source.height)*zoom;x=(w-source.width*scale)/2;y=(h-source.height*scale)/2;}
- function region(next){kind=next;corner=null;pointer=null;draft=getState().boxes[kind]?.slice()||null;$('touch-title').textContent='Edit '+names[kind].toLowerCase()+' box';for(const button of dialog.querySelectorAll('[data-touch-region]'))button.setAttribute('aria-pressed',String(button.dataset.touchRegion===kind));message(draft?'This box is already marked. Redraw it, or use Move or resize this box below. Save box & continue applies your changes.':'Draw a box with two corner taps or a drag. Use Move or resize this box below to adjust it, then save.');draw();}
+ function region(next){for(const button of dialog.querySelectorAll('[data-touch-region]'))button.hidden=!(getState().kinds||['nail','skin','white']).includes(button.dataset.touchRegion);kind=next;corner=null;pointer=null;draft=getState().boxes[kind]?.slice()||null;$('touch-title').textContent='Edit '+names[kind].toLowerCase()+' box';for(const button of dialog.querySelectorAll('[data-touch-region]'))button.setAttribute('aria-pressed',String(button.dataset.touchRegion===kind));message(draft?'This box is already marked. Changes save automatically when you finish drawing, moving or resizing.':'Draw a box with two corner taps or a drag. Completed boxes save automatically.');draw();}
  function point(e,clamp=false){const r=canvas.getBoundingClientRect();let px=(e.clientX-r.left-x)/scale,py=(e.clientY-r.top-y)/scale;if(!clamp&&(px<0||py<0||px>source.width||py>source.height))return null;return{x:Math.max(0,Math.min(source.width,px)),y:Math.max(0,Math.min(source.height,py))};}
  function box(a,b){return[Math.floor(Math.min(a.y,b.y)),Math.floor(Math.min(a.x,b.x)),Math.ceil(Math.max(a.y,b.y)),Math.ceil(Math.max(a.x,b.x))];}
  function setTool(next){tool=next;pointer=null;corner=null;for(const button of dialog.querySelectorAll('[data-touch-tool]'))button.setAttribute('aria-pressed',String(button.dataset.touchTool===tool));canvas.style.cursor=tool==='pan'?'grab':'crosshair';draw();}
@@ -52,7 +58,7 @@ export function initializeTouchRegions({getState,onSave}){
  canvas.addEventListener('pointerup',e=>{
   if(pointer?.id!==e.pointerId)return;e.preventDefault();const p=point(e,true),moved=Math.hypot(e.clientX-pointer.clientX,e.clientY-pointer.clientY)>8;
   if(tool==='mark'){
-   if(moved||corner){draft=box(corner||pointer.start,p);corner=null;message('Adjust the box if needed, then save it.');}
+   if(moved||corner){draft=box(corner||pointer.start,p);corner=null;autosave();}
    else{corner=p;message('Now tap the opposite corner.');}
   }
   pointer=null;if(canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);draw();
@@ -70,12 +76,11 @@ export function initializeTouchRegions({getState,onSave}){
    case 'taller':next[2]=Math.min(source.height,b+step);break;
    case 'shorter':next[2]=Math.max(t+3,b-step);break;
   }
-  draft=next;draw();
+  draft=next;autosave();draw();
  });
  $('touch-save').addEventListener('click',()=>{
   if(!enabled())return;
-  try{onSave(kind,draft.slice());if(Object.keys(getState().boxes).length===3)close();else region(getState().active);}
-  catch(e){message(e.message);}
+  if((getState().kinds||['nail','skin','white']).every(key=>getState().boxes[key]))close();else region(getState().active);
  });
  new ResizeObserver(()=>{if(dialog.open&&source){const rect=canvas.getBoundingClientRect();w=rect.width;h=rect.height;fit();draw();}}).observe(canvas);
  return{close};

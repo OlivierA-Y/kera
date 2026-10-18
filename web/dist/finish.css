@@ -485,3 +485,16 @@ button, input, select, textarea { font-family: inherit; }
 .review-photo-disclosure .scan-history { border-top: 0; margin-top: 0; padding-top: 8px; }
 
 .care-review .care-review-disclaimer { font-size: 16px; line-height: 1.55; color: var(--ink); margin: -8px 0 20px; }
+
+/* Put the touch editor beside the photo title on small screens. */
+#mobile-region-editor-slot:empty { display: none; }
+@media (max-width: 740px) {
+  #mobile-region-editor-slot { margin-left: auto; }
+  #mobile-region-editor-slot:has(#touch-editor-button[hidden]) { display: none; }
+  .view-heading:has(#touch-editor-button:not([hidden])) .camera-status { display: none; }
+  #mobile-region-editor-slot #touch-editor-button {
+    width: auto; min-height: 44px; margin: 0; padding: 10px 16px;
+    background: var(--ink); color: var(--bg); border: 1px solid var(--ink);
+    border-radius: 12px; font-size: 14px; gap: 8px;
+  }
+}

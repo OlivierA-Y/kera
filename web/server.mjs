@@ -13,7 +13,7 @@ import { openRecords, recordsAPI } from './server/records.mjs';
 
 const ROOT = fileURLToPath(new URL('./dist/', import.meta.url));
 const MAX_BODY = 5_000_000;
-export const DEMO_UI_HEAD = '<script src="/demo-session.js" data-demo-ui-overlay></script><link rel="stylesheet" href="/capture-controls.css" data-demo-ui-overlay><script type="module" src="/capture-controls.js" data-demo-ui-overlay></script>';
+export const DEMO_UI_HEAD = '<script src="/demo-session.js" data-demo-ui-overlay></script>';
 const DEFAULT_MODEL = 'google/gemini-2.5-flash';
 const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.json':'application/json', '.png':'image/png', '.svg':'image/svg+xml' };
 const LIMITATION = 'Experimental skin and nail review, not a diagnosis. Photos cannot confirm or rule out skin cancer, fungal infection, eczema or psoriasis. A clinician must assess concerning changes.';
@@ -62,6 +62,17 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
       if(url.pathname==='/demo'){res.writeHead(302,{Location:'/demo/'});res.end();return;}
       if(url.pathname.startsWith('/demo/')){
         if(req.headers.origin && req.headers.origin!==`http://${host}` || req.headers['sec-fetch-site'] && !['same-origin','none'].includes(req.headers['sec-fetch-site']))throw new VisionError(403,'cross_origin','Open Demo from the Kera app.');
+        if(url.pathname==='/demo/api/vision/status'&&req.method==='GET')return json(res,200,{configured:Boolean(apiKey),provider:'OpenRouter',model:apiKey?model:null,dataCollection:allowDataCollection?'allowed':'denied',privacy:'Photos are sent only after permission. Completed results are saved to Demo history on this local server, without photos.'});
+        // All audiences share both reference workflows. Guest APIs remain isolated.
+        if(!url.pathname.startsWith('/demo/api/')){
+          if(!['GET','HEAD'].includes(req.method))throw new VisionError(405,'method_not_allowed','This method is not supported.');
+          let decoded;try{decoded=decodeURIComponent(url.pathname.slice('/demo'.length));}catch{throw new VisionError(400,'invalid_path','Invalid path.');}
+          const target=path.resolve(ROOT,'.'+(decoded==='/'?'/index.html':decoded));
+          if(!target.startsWith(ROOT)||decoded.split('/').some(part=>part.startsWith('.')))throw new VisionError(404,'not_found','File not found.');
+          let actual,bytes;try{actual=await realpath(target);if(!actual.startsWith(ROOT))throw Error();bytes=await readFile(actual);}catch{throw new VisionError(404,'not_found','File not found.');}
+          if(decoded==='/'||decoded==='/index.html')bytes=Buffer.from(bytes.toString('utf8').replace('</head>',DEMO_UI_HEAD+'</head>'));
+          res.writeHead(200,{'Content-Type':MIME[path.extname(actual)]||'application/octet-stream','Cache-Control':'no-store'});res.end(req.method==='HEAD'?undefined:bytes);return;
+        }
         const original=await getDemo(),port=original.address().port,internalHost=`127.0.0.1:${port}`;
         const headers={...req.headers,host:internalHost,...(req.headers.origin?{origin:`http://${internalHost}`}:{})};
         const upstream=httpRequest({host:'127.0.0.1',port,path:req.url.slice('/demo'.length),method:req.method,headers},response=>{
@@ -120,7 +131,7 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
         const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);const disconnected=()=>{if(!res.writableEnded)controller.abort();};res.on('close',disconnected);
         try{const insights=validateInsights(await contextProvider(profileContext,body.hemoglobin_g_per_l,{apiKey,model,allowDataCollection,signal:controller.signal}));if(controller.signal.aborted)throw new VisionError(504,'provider_timeout','Background insights timed out.');if(!res.destroyed)json(res,200,{insights,provider:'OpenRouter',model});}finally{active--;clearTimeout(timer);res.off('close',disconnected);}return;
       }
-      if (/^\/api\/(accounts|account|profiles|results|organizations|invitations|invitation|memberships|backup|restore)(\/|$)/.test(url.pathname)) {
+      if (/^\/api\/(demo-workspace|accounts|account|profiles|results|organizations|invitations|invitation|memberships|backup|restore)(\/|$)/.test(url.pathname)) {
         if (req.headers.origin && req.headers.origin!==`http://${host}` || req.headers['sec-fetch-site'] && !['same-origin','none'].includes(req.headers['sec-fetch-site'])) throw new VisionError(403,'cross_origin','Open records from the Kera app.');
         let body;
         if (!['GET','HEAD'].includes(req.method)) {

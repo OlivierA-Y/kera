@@ -49,3 +49,14 @@ test('concise reference summaries preserve inclusive limits and avoid a healthy 
  for(const [value,state]of [[137.9,'below'],[138,'within'],[172,'within'],[172.1,'above']]){const summary=hemoglobinSummary(c,value);assert.equal(summary.state,state);assert.match(summary.detail,/138–172 g\/L/);assert.match(summary.background,/health background/);assert.doesNotMatch(summary.title,/healthy|diagnosis|normal health/i);}
  for(const context of [{age:12,sex:'male'},{age:36,sex:'female',pregnancy:'pregnant'},{age:36,sex:'other_or_not_provided'},{}])assert.equal(hemoglobinSummary(context,150).state,'unavailable');
 });
+
+
+test('Demo workspace has durable isolated history without invented demographics or duplicate profiles',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'kera-demo-history-'));let s=openRecords(join(dir,'records.sqlite'));
+ try{
+  const other=personal(s);const demo=s.demoWorkspace(),again=s.demoWorkspace();assert.equal(demo.identity.id,again.identity.id);assert.equal(demo.profiles.length,1);assert.equal(demo.profiles[0].age,null);assert.equal(demo.profiles[0].sex,'');
+  s.saveResult(demo.identity,demo.profiles[0].id,hb());assert.equal(s.results(demo.identity,demo.profiles[0].id).length,1);assert.equal(s.results(other.i,other.p.id).length,0);assert.throws(()=>s.results(other.i,demo.profiles[0].id),/not available/);
+  s.close();s=openRecords(join(dir,'records.sqlite'));const reopened=s.demoWorkspace();assert.equal(s.results(reopened.identity,reopened.profiles[0].id).length,1);assert.equal(s.listIdentities().filter(i=>i.id===demo.identity.id).length,1);
+  const target=openRecords(':memory:');try{target.restore(s.backup(reopened.identity));assert.equal(target.demoWorkspace().profiles[0].id,reopened.profiles[0].id);}finally{target.close();}
+ }finally{s.close();rmSync(dir,{recursive:true,force:true});}
+});

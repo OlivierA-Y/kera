@@ -28,15 +28,10 @@ if (upload && label) {
 }
 if (remove) {
   remove.classList.add('photo-delete-button');
-  remove.textContent = '×';
-  remove.setAttribute('aria-label', 'Delete selected photo');
-  remove.title = 'Delete selected photo';
-}
-if (location.pathname.startsWith('/demo/')) {
-  const exit = document.createElement('a');
-  exit.href = '/';
-  exit.className = 'demo-exit-link';
-  exit.textContent = '← Back to sign in';
-  exit.id = 'exit-demo';
-  document.querySelector('.header')?.after(exit);
+  remove.textContent = 'Delete current photo';
+  remove.setAttribute('aria-label', 'Delete current photo');
+  remove.title = 'Delete only the current picture from this session';
+  const actions=document.createElement('div');actions.className='photo-selection-actions';
+  const current=document.createElement('span');current.className='current-photo-label';current.setAttribute('aria-live','polite');
+  actions.append(current,remove);document.getElementById('scan-history-list')?.after(actions);
 }

@@ -1,0 +1,13 @@
+{
+  "fictional": true,
+  "resident_id": "kera-demo-resident-john",
+  "demo_date": "2026-10-18",
+  "status": "NOT SAVED TO HISTORY",
+  "usual_hb_g_per_l": [
+    145,
+    154
+  ],
+  "simulated_today_hb_g_per_l": 112,
+  "reported_symptoms": "Feels as usual.",
+  "follow_up": "Request clinician review and a confirmatory blood test. A photo estimate cannot establish anemia."
+}

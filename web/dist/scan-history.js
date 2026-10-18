@@ -25,6 +25,8 @@ export function createScanHistory({root,list,previous,next,position,deleteButton
     const items=visible(),i=items.findIndex(e=>e.scan.id===selected);
     root.hidden=!items.length;
     deleteButton.disabled=busy||!selected||entries.get(selected)?.scan.state==='pending';
+    deleteButton.dataset.photoName=entries.has(selected)?name(entries.get(selected)):'';
+    const current=root.querySelector('.current-photo-label');if(current)current.textContent=entries.has(selected)?'Current picture: '+name(entries.get(selected)):'Select a picture';
     previous.disabled=busy||i<=0;next.disabled=busy||i<0||i>=items.length-1;
     position.textContent=i>=0?`${i+1} of ${items.length}`:`${items.length} photos`;
     for(const entry of entries.values()){
@@ -62,6 +64,7 @@ export function createScanHistory({root,list,previous,next,position,deleteButton
   function remove(entry){if(entry.url)URL.revokeObjectURL(entry.url);bytes-=entry.blob?.size||0;entry.item.remove();entries.delete(entry.scan.id);}
   deleteButton.addEventListener('click',()=>{
     const entry=entries.get(selected);if(busy||!entry||entry.scan.state==='pending')return;
+    if(!doc.defaultView.confirm(`Delete ${name(entry)}, the current picture?\n\nThis removes it from both analysis tabs and clears its session reading and review. Saved profile history is kept.`))return;
     request++;remove(entry);selected=null;
     for(const other of entries.values())if(other.scan.reviewPhotoIds?.includes(entry.scan.id)){other.scan.review=null;other.scan.reviewPhotoIds=[];}
     update();void onDelete(entry.scan.id,visible());
