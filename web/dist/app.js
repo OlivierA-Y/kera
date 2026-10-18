@@ -16,20 +16,20 @@ let loadVersion=0, analysis='skin',hbResultReady=false;
 let currentPhotoId=null,photoNumber=0;
 function recordPhoto(source,key=null){
   const existing=scanHistory.findByKey(key);if(existing)return existing.scan.id;
-  const scan={id:crypto.randomUUID(),number:++photoNumber,state:'draft',result:null,message:'',review:null};
+  const scan={id:crypto.randomUUID(),number:++photoNumber,state:'draft',result:null,message:'',review:null,origin:key?'upload':'camera'};
   scanHistory.record(scan,source,{},key);return scan.id;
 }
 const MAX_SCANS=100;
 const MAX_PENDING_SCANS=3,MAX_PENDING_BYTES=128*1024*1024;
 let scans=[],processor=createScanProcessor(),sessionVersion=0,currentScanId=null,finalizing=false,actionBusy=false,uploadBusy=false,averageController=null;
-const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null,onResult:(value,additionalId)=>{const ids=[currentPhotoId,additionalId].filter(Boolean);for(const id of ids)scanHistory.attachReview(id,value,ids);},onAdditionalPhoto:(source,key)=>{const id=recordPhoto(source,key);scanHistory.selectCurrent(currentPhotoId);return id;}});
+const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null,onResult:value=>{if(currentPhotoId)scanHistory.attachReview(currentPhotoId,value);}});
 const touchEditor=initializeTouchRegions({getState:()=>({source:photo,boxes,active,editable:analysis==='hb'&&mode==='photo'&&Boolean(snapshot)&&!currentScanId&&!finalizing&&!actionBusy&&!uploadBusy}),onSave:(kind,box)=>{selectRegion(kind);saveRegion(box);}});
 const scanHistory=createScanHistory({root:$('scan-history'),list:$('scan-history-list'),previous:$('previous-saved-photo'),next:$('next-saved-photo'),position:$('saved-photo-position'),deleteButton:$('delete-session-photo'),onDelete:deleteHistoryPhoto,onSelect:restoreHistoryPhoto,onError:error});
 function restoreHistoryPhoto(entry,image){
   if(finalizing||actionBusy||uploadBusy)return;
   cameraRequest++;loadVersion++;stopTracks();touchEditor.close();
   photo.width=image.width;photo.height=image.height;context.drawImage(image,0,0);
-  snapshot=context.getImageData(0,0,photo.width,photo.height);drag=null;lastSource='upload';currentScanId=null;
+  snapshot=context.getImageData(0,0,photo.width,photo.height);drag=null;lastSource=entry.scan.origin||'upload';currentScanId=null;
   boxes=structuredClone(entry.boxes);currentPhotoId=entry.scan.id;
   if(analysis==='hb')hbResultReady=false;
   visual.reset(true);setMode('photo');selectRegion('nail');updateRegions();
@@ -92,7 +92,7 @@ function renderAnalysis(){
   document.body.dataset.analysis=analysis;scanHistory.setMode(analysis);scanHistory.selectCurrent(currentPhotoId);
   show('hb-workflow',!skin);show('visual-analysis',skin);
   show('box-layer',!skin);show('drawing-prompt',!skin&&mode==='photo');
-  show('add-angle',skin&&hasPhoto);
+  $('upload-label').textContent=hasPhoto&&lastSource==='upload'?'Replace photo':'Upload a photo';
   $('workflow-label').textContent=skin?'Skin & nail':'Hemoglobin';
   $('workflow-step').textContent=skin?(hasPhoto?'02 / Review':'01 / Capture'):mode==='result'?'03 / Estimate':hasPhoto?'02 / Mark regions':'01 / Capture';
   $('view-heading').textContent=!skin&&mode==='result'?(hasPhoto?'Last photo':'Scan complete'):hasPhoto?'Your photo':'Your camera';
@@ -115,7 +115,7 @@ function selectAnalysis(next){
   else if(next==='skin'&&mode==='result')setMode(snapshot?'photo':'empty');
   else{renderAnalysis();renderSession();}
   const review=scanHistory.get(currentPhotoId)?.scan.review;if(next==='skin'&&review)visual.restoreReview(review);
-  notice(snapshot?(next==='skin'?'Add another angle if useful, then continue to preview and consent.':'Hemoglobin requires the middle nail, nearby skin and white reference in the same photo.'):(next==='skin'?'Take or upload a close-up. Nothing is sent without your permission.':'Capture your middle nail, nearby skin and a white reference. Estimation stays on this device.'));
+  notice(snapshot?(next==='skin'?'Select a saved photo or continue to preview and consent.':'Hemoglobin requires the middle nail, nearby skin and white reference in the same photo.'):(next==='skin'?'Take or upload a close-up. Nothing is sent without your permission.':'Capture your middle nail, nearby skin and a white reference. Estimation stays on this device.'));
 }
 for(const [id,value] of [['tab-hb','hb'],['tab-skin','skin']]){
   $(id).addEventListener('click',()=>selectAnalysis(value));
@@ -156,7 +156,7 @@ function loadSnapshot(source,width,height,origin,key=null){
   boxes={};currentScanId=null;currentPhotoId=null;lastSource=origin;visual.reset(true);setMode('photo');selectRegion('nail');updateRegions();error('');
   currentPhotoId=recordPhoto(photo,key);if(scanHistory.get(currentPhotoId).scan.state==='pending')currentScanId=currentPhotoId;boxes=structuredClone(scanHistory.get(currentPhotoId).boxes);updateRegions();renderAnalysis();
   if(analysis==='skin'&&scanHistory.get(currentPhotoId).scan.review)visual.restoreReview(scanHistory.get(currentPhotoId).scan.review);
-  photoNotice(analysis==='skin'?'Photo captured. Add another angle if useful, then continue.':'Photo captured. Mark the three regions to add this hemoglobin reading.');
+  photoNotice(analysis==='skin'?'Photo selected. Continue to preview and consent.':'Photo captured. Mark the three regions to add this hemoglobin reading.');
 }
 $('start-camera').addEventListener('click',startCamera);
 $('capture-button').addEventListener('click',()=>{

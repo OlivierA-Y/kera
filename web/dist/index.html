@@ -54,12 +54,11 @@
           <span id="drawing-prompt" class="drawing-prompt" hidden>Draw around the middle fingernail</span>
         </div>
         <div class="camera-toolbar">
-          <div class="camera-tools"><button id="upload-button" class="text-button">Upload a photo <span aria-hidden="true">↗</span></button><input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" hidden><button id="switch-camera" class="icon-button" aria-label="Switch camera" title="Switch camera" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 8a8 8 0 0 0-14-3L3 8m0-5v5h5M4 16a8 8 0 0 0 14 3l3-3m0 5v-5h-5"/></svg></button><button id="stop-camera" class="text-button" hidden>Stop camera</button></div><button id="torch-button" class="text-button" aria-pressed="false" hidden disabled>Flash unavailable</button>
+          <div class="camera-tools"><button id="upload-button" class="text-button"><span id="upload-label">Upload a photo</span> <span aria-hidden="true">↗</span></button><input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" hidden><button id="switch-camera" class="icon-button" aria-label="Switch camera" title="Switch camera" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 8a8 8 0 0 0-14-3L3 8m0-5v5h5M4 16a8 8 0 0 0 14 3l3-3m0 5v-5h-5"/></svg></button><button id="stop-camera" class="text-button" hidden>Stop camera</button></div><button id="torch-button" class="text-button" aria-pressed="false" hidden disabled>Flash unavailable</button>
           <button id="capture-button" class="button dark-button" disabled><span class="shutter-icon" aria-hidden="true"></span>Take photo</button>
-          <button id="retake-button" class="text-button" hidden><span aria-hidden="true">↻</span> Retake</button><button id="add-angle" class="text-button" hidden><span aria-hidden="true">＋</span> Another angle</button><input id="side-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>
-        </div>
+          <button id="retake-button" class="text-button" hidden><span aria-hidden="true">↻</span> Retake</button></div>
         <p id="torch-note" class="notice" role="status" hidden></p>
-        <div id="additional-photo" class="additional-photo" hidden><img id="additional-preview" alt="Additional angle selected for review"><span>Another angle</span><button id="remove-angle" class="text-button" aria-label="Remove additional angle">Remove</button></div>
+
         <p id="notice" class="notice" role="status" aria-live="polite">Hemoglobin estimation stays on your device. Optional visual analysis sends photos only with your permission.</p>
         <div id="error" class="error" role="alert" hidden></div>
       </section>
@@ -137,7 +136,7 @@
     <div class="region-help-shell">
       <div class="region-help-header"><h2 id="region-help-title" tabindex="-1">Photo and region guide</h2><button class="region-help-close" type="button" data-close-region-help aria-label="Close photo and region guide">×</button></div>
       <div class="region-help-body">
-        <section id="guide-skin"><h3>Take a clear skin or nail photo</h3><ol><li>Use even light. Keep the affected area in focus and fill the frame.</li><li>Take or upload your photo. You can add another angle of the same area.</li><li>Tap <strong>Preview photos</strong>, preview the photos and read the data-sharing notice. Photos are sent only after you check the consent box and tap <strong>Send photos</strong>.</li></ol><p>This experimental review cannot diagnose or rule out disease. Have concerning skin or nail changes assessed by a clinician.</p></section>
+        <section id="guide-skin"><h3>Take a clear skin or nail photo</h3><ol><li>Use even light. Keep the affected area in focus and fill the frame.</li><li>Take or upload your photo. Select a saved photo to review it.</li><li>Tap <strong>Preview photos</strong>, preview the photos and read the data-sharing notice. Photos are sent only after you check the consent box and tap <strong>Send photos</strong>.</li></ol><p>This experimental review cannot diagnose or rule out disease. Have concerning skin or nail changes assessed by a clinician.</p></section>
         <section id="guide-hb">
         <p>Use a clean, dry hand without nail polish. Ask a helper if needed.</p>
         <fieldset class="region-help-options"><legend>Choose your setup</legend><div class="region-help-choices">
@@ -179,8 +178,8 @@
   <dialog id="vision-dialog" aria-labelledby="vision-dialog-title">
     <div class="dialog-header"><h2 id="vision-dialog-title">A second look, with permission.</h2><button id="close-vision" class="icon-button" aria-label="Close visual analysis">×</button></div>
     <p>Send these photos through OpenRouter to its selected model provider to review skin and nail changes relevant to skin cancer, fungal infection, eczema and psoriasis. This experimental review cannot diagnose or rule out any of these conditions.</p>
-    <div id="vision-preview-area" class="vision-previews"><figure><img id="top-preview" alt="Main photo that will be sent for review"><figcaption>Affected skin or nail</figcaption></figure><figure><img id="side-preview" alt="Optional additional photo that will also be sent" hidden><figcaption>Another angle of the same area, optional</figcaption><button id="choose-side" class="text-button" type="button"><span id="side-label">Add another angle</span></button><button id="remove-side" class="text-button" type="button" hidden>Remove additional photo</button></figure></div>
-    <p class="small-note">Keep the affected area in focus and visible. Include only the skin or nail being reviewed, without faces or identifying details. An additional angle is optional.</p>
+    <div id="vision-preview-area" class="vision-previews"><figure><img id="top-preview" alt="Main photo that will be sent for review"><figcaption>Affected skin or nail</figcaption></figure></div>
+    <p class="small-note">Keep the affected area in focus and visible. Include only the skin or nail being reviewed, without faces or identifying details.</p>
     <p id="vision-connection" class="small-note" role="status">Checking the vision connection…</p>
     <p id="vision-data-policy" class="small-note" hidden>Provider data collection is enabled on this server. Requests may be logged and used to improve provider services. Send only non-confidential photos without identifying details.</p>
     <form id="vision-form"><label class="vision-consent"><input id="vision-consent" type="checkbox" required><span>I agree to send these photos to OpenRouter and its selected model provider for an experimental skin and nail review.</span></label><p class="small-note">Kera sends resized JPEG copies without original photo metadata. It does not save the photos or observations. <a href="https://openrouter.ai/privacy" target="_blank" rel="noopener noreferrer">OpenRouter’s data policies</a> apply. The selected model provider’s policies also apply. Retention may apply.</p><button id="send-vision" class="button dark-button" type="submit" disabled>Send photos</button></form>
