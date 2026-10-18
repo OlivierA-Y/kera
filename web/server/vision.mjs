@@ -66,10 +66,10 @@ export function validateObservation(value, hasSide) {
   }
   return value;
 }
-export function buildRequest(photos, model) {
+export function buildRequest(photos, model, allowDataCollection = false) {
   return {
     model, max_tokens: 4096, stream: false,
-    provider: { require_parameters: true, data_collection: 'deny' },
+    provider: { require_parameters: true, data_collection: allowDataCollection ? 'allow' : 'deny' },
     messages: [
       { role:'system', content:INSTRUCTIONS },
       { role:'user', content: photos.flatMap(photo => [
@@ -88,18 +88,24 @@ export function parseProviderResponse(body, hasSide) {
   try { value = JSON.parse(choice.message.content); } catch { throw new VisionError(502,'invalid_output','The vision service returned an unreadable observation. Try again.'); }
   return validateObservation(value, hasSide);
 }
-export async function analyzePhotos(photos, { apiKey, model, signal, fetchImpl = fetch }) {
+export async function analyzePhotos(photos, { apiKey, model, signal, allowDataCollection = false, fetchImpl = fetch }) {
   let response;
   try {
     response = await fetchImpl('https://openrouter.ai/api/v1/chat/completions', {
       method:'POST', headers:{ 'Authorization':`Bearer ${apiKey}`, 'Content-Type':'application/json' },
-      body:JSON.stringify(buildRequest(photos, model)), signal,
+      body:JSON.stringify(buildRequest(photos, model, allowDataCollection)), signal,
     });
   } catch (e) {
     if (signal?.aborted) throw new VisionError(504,'provider_timeout','The vision request timed out or was canceled. No observations were returned.');
     throw new VisionError(502,'provider_unreachable','The vision service could not be reached. Check the server connection and try again.');
   }
   if (!response.ok) {
+    // Inspect upstream error categories, but never relay raw provider text.
+    let detail;
+    try { detail = await response.json(); } catch { detail = null; }
+    const message = typeof detail?.error?.message === 'string' ? detail.error.message : '';
+    if (response.status === 404 && /data policy|privacy|training/i.test(message)) throw new VisionError(503,'provider_privacy','OpenRouter blocked this model under the current data policy. Check the model and privacy settings in OpenRouter and on this server. No observations were returned.');
+    if ([400,404,422].includes(response.status)) throw new VisionError(503,'provider_configuration','The selected model has no available endpoint supporting this request. Check the model, image input, and structured-output support.');
     if ([401,402,403].includes(response.status)) throw new VisionError(503,'provider_auth','The server’s vision connection needs attention. Hemoglobin estimation still works locally.');
     if (response.status === 429) throw new VisionError(429,'provider_limit','The vision service has reached a rate or usage limit. Try again later.');
     throw new VisionError(502,'provider_error','The vision service could not complete this request. Try again later.');

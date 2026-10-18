@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { mkdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
 let calls=0,mode='success',lastPhotos;
-const server=createApp({apiKey:'local-test-only',provider:async(photos,{signal})=>{
+const server=createApp({apiKey:'local-test-only',allowDataCollection:true,provider:async(photos,{signal})=>{
  calls++;lastPhotos=photos;
  if(mode==='wait')await new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new Error('aborted'))));
  if(mode==='error')throw new Error('test failure');
@@ -27,6 +27,7 @@ async function open(p){await click(p,'open-vision');await wait(p,"document.getEl
 async function consent(p){await click(p,'vision-consent');await click(p,'send-vision');}
 try{
  const p=await browser.newPage({width:1440,height:1000});await p.goto(base);await upload(p);await open(p);
+ assert.equal(await p.eval("document.getElementById('vision-data-policy').hidden"),false);
  assert.equal(calls,0);assert.equal(await p.eval("document.getElementById('send-vision').disabled"),true);
  await click(p,'close-vision');assert.equal(calls,0);console.log('PASS no remote analysis before explicit consent');
  await open(p);await consent(p);await wait(p,"!document.getElementById('vision-results').hidden");assert.equal(calls,1);assert.equal(lastPhotos.length,1);

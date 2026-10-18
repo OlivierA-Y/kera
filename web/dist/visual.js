@@ -18,11 +18,12 @@ export function initializeVisualAnalysis({getPhoto}){
   function feedback(message){$('vision-error').textContent=message;$('vision-error').hidden=!message;}
   function updateSend(){send.disabled=!ready||!topData||!consent.checked||busy;}
   async function checkServer(){
-    ready=false;updateSend();
+    ready=false;$('vision-data-policy').hidden=true;updateSend();
     try{
       const response=await fetch('./api/vision/status',{cache:'no-store'});
       if(!response.ok)throw new Error('no server');
       const status=await response.json();ready=status.configured===true;
+      $('vision-data-policy').hidden=status.dataCollection!=='allowed';
       $('vision-connection').textContent=ready?'OpenRouter connection ready. Nothing is sent until you choose “Send photos”.':'Visual analysis is not connected on this server yet. Hemoglobin estimation still works on this device.';
     }catch{
       $('vision-connection').textContent='Visual analysis needs the Kera local server. The local hemoglobin estimate remains available.';

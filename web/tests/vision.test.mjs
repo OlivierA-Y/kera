@@ -104,3 +104,18 @@ test('Timeout and unexpected provider error fail closed without sensitive text',
   const response=await post(base);assert.equal(response.status,500);assert.ok(!JSON.stringify(await response.json()).includes('test-hidden-key'));
  });
 });
+test('Provider data collection requires explicit server opt-in',async()=>{
+ assert.equal(buildRequest(photos,'test-model').provider.data_collection,'deny');
+ assert.equal(buildRequest(photos,'test-model',true).provider.data_collection,'allow');
+ let seen;
+ await fixture({apiKey:'test',allowDataCollection:true,provider:async(_,options)=>{seen=options.allowDataCollection;return observation();}},async base=>{
+  assert.equal((await (await fetch(base+'/api/vision/status')).json()).dataCollection,'allowed');
+  assert.equal((await post(base)).status,200);
+ });assert.equal(seen,true);
+ await fixture({apiKey:'test',allowDataCollection:false},async base=>assert.equal((await (await fetch(base+'/api/vision/status')).json()).dataCollection,'denied'));
+});
+test('Privacy and unsupported endpoint errors are actionable without exposing provider text',async()=>{
+ for(const [status,message,code] of [[404,'No endpoints found matching your data policy (Free model training). SECRET','provider_privacy'],[404,'No endpoints found supporting the requested parameters SECRET','provider_configuration'],[400,'Unsupported schema SECRET','provider_configuration']]){
+  await assert.rejects(analyzePhotos(photos,{apiKey:'test',model:'test',fetchImpl:async()=>new Response(JSON.stringify({error:{message}}),{status})}),e=>e.status===503&&e.code===code&&!e.message.includes('SECRET'));
+ }
+});

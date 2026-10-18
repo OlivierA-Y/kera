@@ -39,7 +39,7 @@ export function validateInput(body) {
   if (!seen.has('top')) throw new VisionError(400,'top_required','Include a top view of the nail.');
   return body.photos.map(({view,data_url})=>({view,data_url}));
 }
-export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=process.env.OPENROUTER_VISION_MODEL||DEFAULT_MODEL, provider=analyzePhotos, maxRequests=10, timeoutMs=45000 }={}) {
+export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=process.env.OPENROUTER_VISION_MODEL||DEFAULT_MODEL, provider=analyzePhotos, allowDataCollection=process.env.OPENROUTER_ALLOW_DATA_COLLECTION==='true', maxRequests=10, timeoutMs=45000 }={}) {
   let active=0;let recent=[];
   const server=createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
@@ -52,7 +52,7 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
       const host=req.headers.host;
       if (!host || !new Set([`localhost:${server.address().port}`,`127.0.0.1:${server.address().port}`,`[::1]:${server.address().port}`]).has(host)) throw new VisionError(403,'invalid_host','This local server accepts localhost requests only.');
       const url=new URL(req.url,`http://${host}`);
-      if (url.pathname==='/api/vision/status' && req.method==='GET') return json(res,200,{configured:Boolean(apiKey),provider:'OpenRouter',model:apiKey?model:null,privacy:'Photos are sent through OpenRouter to its selected model provider only after explicit permission. Kera does not save photos or observations.'});
+      if (url.pathname==='/api/vision/status' && req.method==='GET') return json(res,200,{configured:Boolean(apiKey),provider:'OpenRouter',model:apiKey?model:null,dataCollection:allowDataCollection?'allowed':'denied',privacy:'Photos are sent through OpenRouter to its selected model provider only after explicit permission. Kera does not save photos or observations.'});
       if (url.pathname==='/api/vision/analyze') {
         if (req.method!=='POST') throw new VisionError(405,'method_not_allowed','Use POST for visual analysis.');
         if (req.headers.origin!==`http://${host}` || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Visual analysis must start from this app.');
@@ -66,7 +66,7 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
         const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);
         const disconnected=()=>{if(!res.writableEnded)controller.abort();};res.on('close',disconnected);
         try {
-          const observation=validateObservation(await provider(photos,{apiKey,model,signal:controller.signal}),photos.some(p=>p.view==='side'));
+          const observation=validateObservation(await provider(photos,{apiKey,model,allowDataCollection,signal:controller.signal}),photos.some(p=>p.view==='side'));
           if (controller.signal.aborted) throw new VisionError(504,'provider_timeout','The vision request timed out or was canceled.');
           if (!res.destroyed) json(res,200,{...observation,provider:'OpenRouter',model,limitation:LIMITATION,analysis_id:randomUUID()});
         } catch(e) {
