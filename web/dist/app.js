@@ -1,4 +1,4 @@
-import { readCameraAdjustment, saveCameraAdjustment, adjustHemoglobin } from './camera-adjustment.js';
+import { createScanHistory } from './scan-history.js';
 import { createTorchController } from './torch.js';
 import { initializeTouchRegions } from './touch-regions.js';
 import { initializeVisualAnalysis } from './visual.js';
@@ -13,14 +13,17 @@ const labels={nail:'Middle nail',skin:'Nearby skin',white:'White reference'};
 const prompts={nail:'Draw around the whole middle fingernail',skin:'Draw on skin between the middle finger’s two joints',white:'Draw around the plain white reference'};
 let model=null, stream=null, cameraRequest=0, facing='environment', mode='empty', active='nail', boxes={}, drag=null, snapshot=null, lastSource='camera';
 let loadVersion=0, analysis='skin',hbResultReady=false;
+let currentSkinPhotoId=null,skinPhotoNumber=0;
+function recordSkinPhoto(source){
+  const scan={id:crypto.randomUUID(),number:++skinPhotoNumber,type:'skin',state:'captured',review:null};
+  scanHistory.record(scan,source,{});return scan.id;
+}
 const MAX_SCANS=100;
 const MAX_PENDING_SCANS=3,MAX_PENDING_BYTES=128*1024*1024;
 let scans=[],processor=createScanProcessor(),sessionVersion=0,currentScanId=null,finalizing=false,actionBusy=false,uploadBusy=false,averageController=null;
-const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null});
+const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null,onResult:(value,additionalId)=>{if(currentSkinPhotoId)scanHistory.attachReview(currentSkinPhotoId,value);if(additionalId)scanHistory.attachReview(additionalId,value);},onAdditionalPhoto:source=>recordSkinPhoto(source)});
 const touchEditor=initializeTouchRegions({getState:()=>({source:photo,boxes,active,editable:analysis==='hb'&&mode==='photo'&&Boolean(snapshot)&&!currentScanId&&!finalizing&&!actionBusy&&!uploadBusy}),onSave:(kind,box)=>{selectRegion(kind);saveRegion(box);}});
-let cameraAdjustment=readCameraAdjustment();
-$('camera-adjustment').checked=cameraAdjustment;
-$('camera-adjustment').addEventListener('change',()=>{cameraAdjustment=$('camera-adjustment').checked;saveCameraAdjustment(cameraAdjustment);});
+const scanHistory=createScanHistory({root:$('scan-history'),list:$('scan-history-list'),dialog:$('scan-history-dialog'),canvas:$('scan-history-canvas'),title:$('scan-history-title'),detail:$('scan-history-detail'),close:$('close-scan-history'),previous:$('previous-saved-photo'),next:$('next-saved-photo'),position:$('saved-photo-position'),reviewRoot:$('scan-history-review')});
 const torch=createTorchController({onChange:renderTorch});
 function renderTorch(state=torch.state){
   const live=mode==='live',button=$('torch-button');
@@ -78,6 +81,7 @@ function selectAnalysis(next){
   if(next===analysis||finalizing||actionBusy||uploadBusy)return;
   visual.deactivate();
   touchEditor.close();analysis=next;drag=null;
+  if(next==='skin'&&snapshot&&!currentSkinPhotoId)currentSkinPhotoId=recordSkinPhoto(photo);
   if(next==='hb'&&hbResultReady){cameraRequest++;stopTracks();setMode('result');}
   else if(next==='skin'&&mode==='result')setMode(snapshot?'photo':'empty');
   else{renderAnalysis();renderSession();}
@@ -119,7 +123,8 @@ function loadSnapshot(source,width,height,origin){
   if(width*height>24000000)throw new Error('This photo is too large. Use a photo under 24 megapixels.');
   photo.width=width;photo.height=height;context.drawImage(source,0,0,width,height);
   snapshot=context.getImageData(0,0,width,height);cameraRequest++;stopTracks();
-  boxes={};currentScanId=null;lastSource=origin;visual.reset(true);setMode('photo');selectRegion('nail');updateRegions();error('');
+  boxes={};currentScanId=null;currentSkinPhotoId=null;lastSource=origin;visual.reset(true);setMode('photo');selectRegion('nail');updateRegions();error('');
+  if(analysis==='skin')currentSkinPhotoId=recordSkinPhoto(photo);
   photoNotice(analysis==='skin'?'Photo captured. Add another angle if useful, then continue.':'Photo captured. Mark the three regions to add this hemoglobin reading.');
 }
 $('start-camera').addEventListener('click',startCamera);
@@ -148,10 +153,10 @@ $('file-input').addEventListener('change',async event=>{
 });
 async function retake(){
   if(finalizing)return;
-  loadVersion++;uploadBusy=false;currentScanId=null;
+  loadVersion++;uploadBusy=false;currentScanId=null;currentSkinPhotoId=null;
   error('');snapshot=null;boxes={};drag=null;visual.reset(false);$('box-layer').replaceChildren();context.clearRect(0,0,photo.width,photo.height);setMode('empty');
   updateRegions();
-  if(analysis==='hb'&&activeScanCount()>=MAX_SCANS){notice('This session has reached 100 photos. Choose End scan now.');return;}
+  if(analysis==='hb'&&activeScanCount()>=MAX_SCANS){notice('This session has reached 100 photos. Choose Finish & see result.');return;}
   if(lastSource==='camera'){
     await startCamera();if(mode==='live')$('capture-button').focus({preventScroll:true});
   }else{notice('Upload another photo, or turn on your camera.');$('upload-button').focus({preventScroll:true});}
@@ -159,8 +164,8 @@ async function retake(){
 }
 $('retake-button').addEventListener('click',retake);
 $('new-scan').addEventListener('click',async()=>{
-  hbResultReady=false;sessionVersion++;averageController?.abort();averageController=null;processor.close();processor=createScanProcessor();scans=[];currentScanId=null;
-  $('prediction-value').textContent='—';$('adjustment-caption').textContent='';$('average-caption').textContent='';$('quality-warnings').replaceChildren();show('quality-warnings',false);
+  scanHistory.clearType('hb');hbResultReady=false;sessionVersion++;averageController?.abort();averageController=null;processor.close();processor=createScanProcessor();scans=[];currentScanId=null;
+  $('prediction-value').textContent='—';$('average-caption').textContent='';$('quality-warnings').replaceChildren();show('quality-warnings',false);
   setMode('empty');await retake();
 });
 function displayGeometry(){
@@ -201,7 +206,7 @@ function updateRegions(){
 }
 function saveRegion(box){
   if(analysis!=='hb')return;
-  if(finalizing||currentScanId)throw new Error('This photo has already been added. Choose Next scan to add another photo, or end the scan now.');
+  if(finalizing||currentScanId)throw new Error('This photo has already been added. Choose Add another photo to continue, or Finish & see result.');
   validateBox(box,photo.width,photo.height);
   if(box[3]-box[1]<3||box[2]-box[0]<3)throw new Error('Draw a slightly larger box, at least 3 pixels wide and high.');
   boxes[active]=box;error('');updateRegions();
@@ -230,6 +235,7 @@ function currentReady(){return analysis==='hb'&&mode==='photo'&&snapshot&&model&
 function activeScanCount(){return scans.filter(scan=>scan.state!=='failed').length;}
 function hasWorkerCapacity(){const pending=scans.filter(scan=>scan.state==='pending');return pending.length<MAX_PENDING_SCANS&&pending.reduce((sum,scan)=>sum+scan.bytes,0)+(snapshot?.data.byteLength||0)<=MAX_PENDING_BYTES;}
 function renderSession(){
+  scanHistory.update();
   const pending=scans.filter(scan=>scan.state==='pending').length;
   const included=scans.filter(scan=>scan.state==='complete').length;
   const failed=scans.filter(scan=>scan.state==='failed');
@@ -242,12 +248,11 @@ function renderSession(){
   $('session-count').textContent=`${scans.length} ${scans.length===1?'photo added':'photos added'}`;
   $('session-progress').textContent=finalizing?(pending?`Finishing your scan. Waiting for ${pending} ${pending===1?'photo':'photos'}…`:'Calculating your average…'):
     pending?`Processing ${pending} ${pending===1?'photo':'photos'} in the background. You can continue scanning.`:
-    included?`${included} ${included===1?'reading is':'readings are'} ready. Choose End scan now for your result.`:'Take another photo to continue.';
+    included?`${included} ${included===1?'reading is':'readings are'} ready. Choose Finish & see result for your result.`:'Take another photo to continue.';
   const failures=$('session-failures');failures.replaceChildren();
   for(const scan of failed){const li=document.createElement('li');li.textContent=`Photo ${scan.number} was not included: ${scan.message}`;failures.append(li);}
   show('session-failures',failed.length>0);
   const blocked=finalizing||actionBusy||uploadBusy;
-  $('camera-adjustment').disabled=blocked||hbResultReady;
   $('touch-editor-button').disabled=blocked||Boolean(currentScanId)||!snapshot;
   const dockVisible=scanDockMedia.matches&&hb&&mode!=='result'&&(regionsMarked||scans.length>0);
   show('mobile-scan-dock',dockVisible);document.body.classList.toggle('has-scan-dock',Boolean(dockVisible));
@@ -257,10 +262,10 @@ function renderSession(){
   $('predict-button').disabled=blocked||(!currentReady()&&pending+included===0);
   $('continue-scan').disabled=blocked||(!currentReady()&&!currentScanId)||full||waitingForCapacity;
   $('session-action-note').textContent=finalizing?'Please wait. Your photos are still being processed.':
-    full?'This session has reached 100 photos. Choose End scan now.':
-    waitingForCapacity?'Photos are still processing. End scan now will wait and include this photo.':
+    full?'This session has reached 100 photos. Choose Finish & see result.':
+    waitingForCapacity?'Photos are still processing. Finish & see result will wait and include this photo.':
     currentScanId?'This photo has been added. You can continue or try ending the scan again.':
-    currentReady()?'Both buttons add this photo. Next scan lets you take another.':
+    currentReady()?'Both buttons include this photo. Add another photo continues capturing; Finish & see result shows the average.':
     scans.length?'End now uses the photos already added. Finish marking this photo to include it.':'Mark all three regions, then choose a button below.';
   for(const id of ['tab-hb','tab-skin'])$(id).disabled=blocked;
   for(const button of document.querySelectorAll('[data-region]'))button.disabled=blocked||Boolean(currentScanId);
@@ -274,7 +279,7 @@ function renderSession(){
 function addCurrentScan(){
   if(currentScanId)return;
   if(!currentReady())throw new Error('Mark all three regions before adding this photo.');
-  if(activeScanCount()>=MAX_SCANS)throw new Error('This session has reached 100 photos. Choose End scan now.');
+  if(activeScanCount()>=MAX_SCANS)throw new Error('This session has reached 100 photos. Choose Finish & see result.');
   if(!hasWorkerCapacity())throw new Error('Please wait for a photo to finish processing, then try again.');
   for(let a=0;a<kinds.length;a++)for(let b=a+1;b<kinds.length;b++){
     const x=boxes[kinds[a]],y=boxes[kinds[b]];
@@ -282,6 +287,7 @@ function addCurrentScan(){
   }
   const version=sessionVersion,scan={id:crypto.randomUUID(),number:scans.length+1,state:'pending',bytes:snapshot.data.byteLength,result:null,message:''};
   currentScanId=scan.id;scans.push(scan);
+  scanHistory.record(scan,photo,boxes);
   scan.promise=processor.process({id:scan.id,model,image:snapshot,boxes:structuredClone(boxes)}).then(result=>{
     if(version!==sessionVersion)return;
     scan.state='complete';scan.result=result;renderSession();
@@ -297,7 +303,7 @@ $('continue-scan').addEventListener('click',async()=>{
   if(analysis!=='hb'||finalizing||actionBusy||(!currentReady()&&!currentScanId))return;
   const version=sessionVersion;
   actionBusy=true;error('');
-  try{addCurrentScan();await retake();photoNotice('Photo added. Take or upload your next photo, or choose End scan now.');}
+  try{addCurrentScan();await retake();photoNotice('Photo added. Take or upload your next photo, or choose Finish & see result.');}
   catch(e){error(e.message);}
   finally{if(version===sessionVersion){actionBusy=false;renderSession();(activeScanCount()>=MAX_SCANS?$('predict-button'):mode==='live'?$('capture-button'):$('upload-button')).focus({preventScroll:true});}}
 });
@@ -305,7 +311,7 @@ $('predict-button').addEventListener('click',async()=>{
   if(analysis!=='hb'||finalizing||actionBusy)return;
   error('');
   if(!currentReady()&&!scans.some(scan=>scan.state==='pending'||scan.state==='complete'))return;
-  const version=sessionVersion,adjustmentEnabled=cameraAdjustment;finalizing=true;loadVersion++;cameraRequest++;stopTracks();
+  const version=sessionVersion;finalizing=true;loadVersion++;cameraRequest++;stopTracks();
   if(mode==='live')setMode('empty');renderSession();
   try{
     if(currentReady()&&activeScanCount()<MAX_SCANS){
@@ -322,17 +328,15 @@ $('predict-button').addEventListener('click',async()=>{
     averageController=new AbortController();const timer=setTimeout(()=>averageController?.abort(),15000);
     let response;
     try{response=await fetch('./api/scans/average',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({readings}),signal:averageController.signal});}
-    catch{throw new Error('Your readings are still here. Make sure the local Kera server is running, then choose End scan now again.');}
+    catch{throw new Error('Your readings are still here. Make sure the local Kera server is running, then choose Finish & see result again.');}
     finally{clearTimeout(timer);averageController=null;}
     const result=await response.json().catch(()=>null);
-    if(!response.ok)throw new Error(result?.error?.message||'The average could not be calculated. Choose End scan now to try again.');
-    if(!result||!Number.isFinite(result.hemoglobin_g_per_l)||result.scan_count!==readings.length||!Array.isArray(result.warnings))throw new Error('The average response could not be read. Choose End scan now to try again.');
+    if(!response.ok)throw new Error(result?.error?.message||'The average could not be calculated. Choose Finish & see result to try again.');
+    if(!result||!Number.isFinite(result.hemoglobin_g_per_l)||result.scan_count!==readings.length||!Array.isArray(result.warnings))throw new Error('The average response could not be read. Choose Finish & see result to try again.');
     if(version!==sessionVersion)return;
     hbResultReady=true;
-    const adjusted=adjustHemoglobin(result.hemoglobin_g_per_l,adjustmentEnabled);
-    $('prediction-value').textContent=adjusted.value.toFixed(1);
-    $('result-caption').textContent=adjustmentEnabled?'Camera-adjusted average estimate':'Average estimated hemoglobin';
-    $('adjustment-caption').textContent=adjustmentEnabled?`Raw model average: ${adjusted.raw.toFixed(1)} g/L.`:'';
+    $('prediction-value').textContent=result.hemoglobin_g_per_l.toFixed(1);
+    $('result-caption').textContent='Average estimated hemoglobin · unadjusted model output';
     const failed=scans.filter(scan=>scan.state==='failed').length;
     $('average-caption').textContent=`Based on ${result.scan_count} ${result.scan_count===1?'reading':'readings'}.${failed?` ${failed} ${failed===1?'photo could':'photos could'} not be read and ${failed===1?'was':'were'} left out.`:''}`;
     const warningArea=$('quality-warnings');warningArea.replaceChildren();
@@ -372,7 +376,7 @@ regionHelp.addEventListener('click',event=>{
 for(const id of ['about-button','footer-about'])$(id).addEventListener('click',()=>$('model-dialog').showModal());
 for(const button of document.querySelectorAll('.close-dialog'))button.addEventListener('click',()=>$('model-dialog').close());
 $('model-dialog').addEventListener('click',event=>{if(event.target===$('model-dialog')){const r=$('model-dialog').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('model-dialog').close();}});
-window.addEventListener('pagehide',()=>{sessionVersion++;cameraRequest++;loadVersion++;averageController?.abort();processor.close();scans=[];stopTracks();snapshot=null;context.clearRect(0,0,photo.width,photo.height);});
+window.addEventListener('pagehide',()=>{scanHistory.clear();sessionVersion++;cameraRequest++;loadVersion++;averageController?.abort();processor.close();scans=[];stopTracks();snapshot=null;context.clearRect(0,0,photo.width,photo.height);});
 window.addEventListener('pageshow',event=>{if(event.persisted){hbResultReady=false;processor=createScanProcessor();currentScanId=null;boxes={};finalizing=false;actionBusy=false;uploadBusy=false;visual.reset(false);$('prediction-value').textContent='—';setMode('empty');updateRegions();}});
 async function loadModel(){
   try{const response=await fetch(new URL('./assets/model.json',import.meta.url));if(!response.ok)throw new Error('Model download failed');model=validateModel(await response.json());$('model-note').textContent='Trained neural network. Runs on your device.';updateRegions();}
