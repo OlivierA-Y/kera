@@ -30,6 +30,8 @@ try{
  for(const [width,height]of [[1280,720],[390,844],[320,568]]){
   await page.setViewportSize({width,height});await page.goto(host);await page.getByRole('button',{name:/Healthcare worker demo/}).waitFor();
   assert.equal(await page.locator('[data-audience=personal]').count(),1);
+  assert.equal(await page.locator('[data-audience=worker]').count(),1);
+  assert.equal(await page.locator('[data-audience=worker-demo]').count(),1);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await page.screenshot({path:resolve(reports,`public-demo-welcome-${width}.png`),fullPage:true});
  }
@@ -71,9 +73,21 @@ try{
  await page.getByRole('button',{name:'Dashboard',exact:true}).click();await page.getByRole('button',{name:'Start a check-in',exact:true}).click();await completeHb();assert.match(await page.locator('#hb-personal-context').innerText(),/121–151 g\/L.*Adult female reference/);
  await page.getByRole('button',{name:'Settings',exact:true}).click();assert.equal(await page.getByRole('heading',{name:'Your profile, in this browser.',exact:true}).count(),1);
  assert.ok(!(await page.locator('#account-app').innerText()).includes('Fictional sample records'));
+ await page.goto(host);await page.locator('[data-audience=worker]').click();await page.waitForURL('**/?worker=1');
+ await page.locator('#account-name').fill('Hosted Worker QA');await page.locator('#account-email').fill('worker@example.com');await page.locator('#account-job_role').selectOption('Nurse');await page.getByRole('button',{name:'Continue',exact:true}).click();
+ assert.equal(await page.locator('.join-organization').count(),0);await page.locator('#account-organization_name').fill('Hosted Care QA');await page.locator('#account-care_setting').selectOption('Clinic');await page.locator('#account-timezone').fill('America/Toronto');
+ await page.waitForFunction(()=>JSON.parse(localStorage.getItem('kera-public-demo-v1-worker-workspace'))?.identities[0]?.draft?.fields?.organization_name==='Hosted Care QA');
+ await page.reload();assert.equal(await page.locator('#account-organization_name').inputValue(),'Hosted Care QA');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('button',{name:'Open my workspace',exact:true}).click();await page.getByText('No residents yet.',{exact:false}).waitFor();assert.equal(await page.locator('.resident-row').count(),0);
+ await page.getByRole('button',{name:'Add resident',exact:true}).click();await page.locator('#account-name').fill('Worker Resident QA');await page.locator('#account-age').fill('64');await page.locator('#account-sex').selectOption('male');await page.getByRole('button',{name:'Save profile',exact:true}).click();await page.locator('.resident-row').waitFor();await page.locator('.resident-row').getByRole('button',{name:'New check-in',exact:true}).click();
+ await completeHb();assert.match(await page.locator('#hb-personal-context').innerText(),/138–172 g\/L/);
+ await page.reload();await page.locator('.resident-row').waitFor();assert.equal(await page.locator('.resident-row').count(),1);await page.locator('.resident-row').getByRole('button',{name:'History',exact:true}).click();await page.getByRole('region',{name:'Check-in history table'}).waitFor();assert.equal(await page.getByRole('button',{name:'Open result',exact:true}).count(),1);
+ await page.getByRole('button',{name:'Team',exact:true}).click();await page.getByRole('heading',{name:'Hosted Worker QA',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Create invitation',exact:true}).count(),0);
+ await page.getByRole('button',{name:'Settings',exact:true}).click();await page.getByRole('heading',{name:'Your care workspace, in this browser.',exact:true}).waitFor();assert.equal(await page.getByRole('link',{name:'Download original demo dataset',exact:true}).count(),0);
+ const workerDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Download workspace backup',exact:true}).click();assert.equal((await workerDownload).suggestedFilename(),'kera-care-workspace-backup.json');await page.screenshot({path:resolve(reports,'public-worker-settings.png'),fullPage:true});
+ await page.goto(host+'/?demo=worker');await page.locator('.resident-row').last().waitFor();assert.equal(await page.locator('.resident-row').count(),21);
  await page.goto(host+'/?demo=personal');await page.locator('body[data-account-screen=capture]').waitFor();
  await page.getByRole('button',{name:'Dashboard',exact:true}).click();await page.getByRole('heading',{name:'Your demo workspace.',exact:true}).waitFor();
  assert.deepEqual(apiCalls,[]);assert.deepEqual(errors,[]);
- console.log('PASS Hosted Individual restored, intake draft/reload, real frozen inference, profile history/editing, reference snapshots, broad Demo guide in live/history/detail, tailored Individual and resident references, visitor isolation and exports; no records API or paid provider required');
+ console.log('PASS Regular hosted worker onboarding, draft resume, own residents, real inference/history, isolated worker demo, backup and team limits; Hosted Individual restored, intake draft/reload, real frozen inference, profile history/editing, reference snapshots, broad Demo guide in live/history/detail, tailored Individual and resident references, visitor isolation and exports; no records API or paid provider required');
  await context.close();await second.context.close();
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

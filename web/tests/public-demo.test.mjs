@@ -56,3 +56,28 @@ test('Hosted Individual resumes intake and preserves personal context and histor
  const store=openRecords(':memory:');try{store.restore(a.request('backup'));assert.equal(store.results(store.actor(workspace.identity.id),p.id).length,1);}finally{store.close();}
  a.reset();assert.equal((await a.enter()).identity.complete,false);assert.equal(demo.request('account').identity.name,'Demo');
 });
+
+test('Regular worker setup resumes, starts empty and preserves resident history separately from demos',async()=>{
+ const storage=memory(),create=()=>createPublicDemo({storage,kind:'worker-workspace',load:()=>{throw Error('Regular setup must not load demo data');}});
+ let app=create();assert.equal((await app.enter()).identity.complete,false);
+ app.request('account/draft','PATCH',{step:1,fields:{name:'Worker QA',email:'qa@example.com',job_role:'Nurse',organization_name:'Care QA',care_setting:'Clinic',timezone:'America/Toronto'}});
+ app=create();assert.equal((await app.enter()).identity.draft.fields.organization_name,'Care QA');
+ const payload={name:'Worker QA',email:'qa@example.com',job_role:'Nurse',organization:{name:'Care QA',care_setting:'Clinic',facility_name:'',timezone:'America/Toronto'}};
+ const before=app.request('backup');assert.throws(()=>app.request('account/complete','POST',{...payload,organization:{...payload.organization,timezone:'bad-zone'}}),/time zone/);assert.deepEqual(app.request('backup').organizations,before.organizations);assert.equal(app.request('account').identity.complete,false);
+ const workspace=app.request('account/complete','POST',payload);assert.equal(workspace.identity.kind,'worker');assert.equal(workspace.identity.complete,true);assert.equal(workspace.profiles.length,0);assert.equal(workspace.memberships[0].role,'owner');assert.equal(workspace.facilities[0].name,'Care QA');
+ const p=app.request('profiles','POST',{name:'Resident QA',age:64,sex:'male',organization_id:workspace.organizations[0].id});
+ const r=app.request('profiles/'+p.id+'/results','POST',entry);assert.equal(r.context.sex,'male');assert.equal(r.data.hemoglobin_g_per_l,112);
+ app=create();await app.enter();assert.equal(app.request('account').profiles.length,1);assert.equal(app.request('profiles/'+p.id+'/results').results.length,1);
+ const sample=demo(storage);assert.equal((await sample.enter()).profiles.length,21);
+ const store=openRecords(':memory:');try{store.restore(app.request('backup'));assert.equal(store.results(store.actor(workspace.identity.id),p.id).length,1);}finally{store.close();}
+ app.reset();assert.equal((await app.enter()).identity.complete,false);assert.equal(sample.request('account').profiles.length,21);
+});
+
+test('Regular worker setup rolls back storage failures and rejects incomplete professional details',async()=>{
+ const storage=memory(),app=createPublicDemo({storage,kind:'worker-workspace'});await app.enter();
+ const payload={name:'Worker QA',email:'qa@example.com',job_role:'Nurse',organization:{name:'Care QA',care_setting:'Clinic',timezone:'America/Toronto'}};
+ assert.throws(()=>app.request('account/complete','POST',{...payload,email:'bad'}),/valid work email/);
+ assert.throws(()=>app.request('account/complete','POST',{...payload,invite:'unsupported'}),/invitations/);
+ const save=storage.setItem;storage.setItem=()=>{throw Error('Storage full');};assert.throws(()=>app.request('account/complete','POST',payload),/Storage full/);assert.equal(app.request('account').identity.complete,false);assert.equal(app.request('account').organizations.length,0);
+ storage.setItem=save;assert.equal(app.request('account/complete','POST',payload).identity.complete,true);
+});

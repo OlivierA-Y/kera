@@ -1,4 +1,4 @@
-/** Public fictional workspaces. Each visitor edits only their own browser copy. */
+/** Browser workspaces and fictional demos, isolated by mode and visitor. */
 import { cleanContext, validateInsights } from './health-context.js';
 import { normalizeReview } from './care-review.js';
 
@@ -15,19 +15,21 @@ export function createPublicDemo({storage=globalThis.localStorage,load=async()=>
   if(!response.ok)throw Error('The sample dataset could not load. Please retry.');
   return response.json();
 },kind='worker'}={}){
+  if(!['worker','personal','individual','worker-workspace'].includes(kind))throw Error('Choose a supported workspace.');
+  const setup=['individual','worker-workspace'].includes(kind),worker=['worker','worker-workspace'].includes(kind);
   const key='kera-public-demo-v1-'+kind;
   let data=null;
   function check(value){
-    if(value?.format!=='kera-backup'||value.version!==1||tables.some(t=>!Array.isArray(value[t])))throw Error('The saved demo could not be read. Reset the demo to reload the sample dataset.');
-    if(value.identities.length!==1||value.identities[0].kind!==(kind==='worker'?'worker':'personal'))throw Error('This is not the expected demo workspace.');
+    if(value?.format!=='kera-backup'||value.version!==1||tables.some(t=>!Array.isArray(value[t])))throw Error('The saved workspace could not be read. Exported backups can be kept separately.');
+    if(value.identities.length!==1||value.identities[0].kind!==(worker?'worker':'personal'))throw Error('This is not the expected workspace.');
     return value;
   }
   async function enter(){
     const saved=storage.getItem(key);
-    if(saved){try{data=check(JSON.parse(saved));}catch{throw Error('The saved demo could not be read. Use Reset demo to reload its sample data.');}}
+    if(saved){try{data=check(JSON.parse(saved));}catch{throw Error('The saved workspace could not be read. Reset it to start again.');}}
     else{
-      const individual=kind==='individual';
-      const fixture=kind==='worker'?await load():{format:'kera-backup',version:1,exported_at:stamp(),identities:[{id:individual?'kera-browser-individual':'kera-interactive-demo',kind:'personal',name:individual?'Individual':'Demo',email:'',job_role:'',complete:!individual,draft:{},created_at:stamp()}],organizations:[],facilities:[],memberships:[],profiles:individual?[]:[{id:'kera-interactive-demo-profile',identity_id:'kera-interactive-demo',organization_id:null,name:'Demo',age:null,age_as_of:stamp(),sex:'',pregnancy:'',conditions:'',medications:'',changes:'',history_unknown:true,created_at:stamp()}],results:[]};
+      const identityId=setup?'kera-browser-'+kind:'kera-interactive-demo';
+      const fixture=kind==='worker'?await load():{format:'kera-backup',version:1,exported_at:stamp(),identities:[{id:identityId,kind:worker?'worker':'personal',name:worker?'Healthcare worker':setup?'Individual':'Demo',email:'',job_role:'',complete:!setup,draft:{},created_at:stamp()}],organizations:[],facilities:[],memberships:[],profiles:setup?[]:[{id:'kera-interactive-demo-profile',identity_id:identityId,organization_id:null,name:'Demo',age:null,age_as_of:stamp(),sex:'',pregnancy:'',conditions:'',medications:'',changes:'',history_unknown:true,created_at:stamp()}],results:[]};
       data=check(copy(fixture));
       // Fail before showing a persistent workspace if storage is unavailable/full.
       storage.setItem(key,JSON.stringify(data));
@@ -44,11 +46,24 @@ export function createPublicDemo({storage=globalThis.localStorage,load=async()=>
   function request(path,method='GET',body){
     if(!data)throw Error('Open the demo workspace first.');
     if(path==='account'&&method==='GET')return copy({identity:data.identities[0],organizations:data.organizations,facilities:data.facilities,memberships:data.memberships,profiles:data.profiles});
-    if(kind==='individual'&&path==='account/draft'&&method==='PATCH')return change(()=>{
+    if(setup&&path==='account/draft'&&method==='PATCH')return change(()=>{
       if(!Number.isInteger(body.step)||body.step<0||body.step>3)throw Error('This setup step could not be saved.');
-      const fields=Object.fromEntries(Object.entries(body.fields).filter(([k])=>['name','age','sex','pregnancy','conditions','medications','changes','history_unknown'].includes(k)));
+      const fields=Object.fromEntries(Object.entries(body.fields).filter(([k])=>['name','age','sex','pregnancy','conditions','medications','changes','history_unknown','email','job_role','organization_name','care_setting','facility_name','timezone'].includes(k)));
       for(const v of Object.values(fields))if(typeof v==='string')plain(v,2000);
       data.identities[0].draft={step:body.step,fields};return data.identities[0];
+    });
+    if(kind==='worker-workspace'&&path==='account/complete'&&method==='POST')return change(()=>{
+      if(data.identities[0].complete)return request('account');
+      if(body.invite)throw Error('Shared team invitations require the local Kera server.');
+      const name=plain(body.name),email=plain(body.email,254),job_role=plain(body.job_role,120);
+      if(!name||!job_role||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Enter your name, valid work email and job role.');
+      const org=body.organization||{},organization={id:crypto.randomUUID(),name:plain(org.name),care_setting:plain(org.care_setting,120),timezone:plain(org.timezone,100),created_at:stamp()};
+      if(!organization.name||!organization.care_setting||!organization.timezone)throw Error('Enter your organization, care setting and time zone.');
+      try{new Intl.DateTimeFormat('en',{timeZone:organization.timezone});}catch{throw Error('Choose a valid time zone, such as America/Toronto.');}
+      const facility={id:crypto.randomUUID(),organization_id:organization.id,name:plain(org.facility_name||organization.name),created_at:stamp()};
+      const identity=data.identities[0];Object.assign(identity,{name,email,job_role,complete:true,draft:{}});
+      data.organizations=[organization];data.facilities=[facility];data.memberships=[{id:crypto.randomUUID(),identity_id:identity.id,organization_id:organization.id,role:'owner',active:true,created_at:stamp()}];
+      return request('account');
     });
     if(kind==='individual'&&path==='account/complete'&&method==='POST')return change(()=>{
       if(data.identities[0].complete)return request('account');
