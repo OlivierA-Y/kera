@@ -8,7 +8,7 @@ import { validateObservation } from '../server/vision.mjs';
 
 test('Clear photos with no identified features are distinguished from inconclusive photos', () => {
   const review = normalizeReview(EXAMPLES.clear.make());
-  assert.match(reviewHeadline(review), /^No visible issues identified/);
+  assert.match(reviewHeadline(review), /^The AI did not spot worrying changes/);
   assert.ok(review.findings.every(item => item.status === 'no_visible_features' && !item.association));
   assert.match(buildHandoff(review), /No visible features identified/);
   assert.match(reviewHeadline(normalizeReview(EXAMPLES.unclear.make())), /Not enough detail/);
