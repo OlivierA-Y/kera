@@ -76,7 +76,7 @@ function renderAnalysis(){
 }
 function selectAnalysis(next){
   if(next===analysis||finalizing||actionBusy||uploadBusy)return;
-  if(next==='hb')visual.deactivate();
+  visual.deactivate();
   touchEditor.close();analysis=next;drag=null;
   if(next==='hb'&&hbResultReady){cameraRequest++;stopTracks();setMode('result');}
   else if(next==='skin'&&mode==='result')setMode(snapshot?'photo':'empty');
@@ -384,3 +384,4 @@ scanDockMedia.addEventListener('change',mountScanActions);
 new ResizeObserver(()=>document.documentElement.style.setProperty('--scan-dock-height',$('mobile-scan-dock').getBoundingClientRect().height+'px')).observe($('mobile-scan-dock'));
 mountScanActions();
 setMode('empty');notice('Take or upload a close-up. Nothing is sent without your permission.');loadModel();
+

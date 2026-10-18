@@ -8,6 +8,8 @@
   <title>Kera — A closer look</title>
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
   <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./care-review.css">
+  <link rel="stylesheet" href="./finish.css">
   <script type="module" src="./app.js"></script>
 </head>
 <body>
@@ -21,6 +23,7 @@
     <button id="guide-button" class="guide-button" aria-haspopup="dialog" aria-controls="region-help-dialog"><span>Guide</span><span class="guide-mark" aria-hidden="true">?</span></button>
   </header>
   <main id="workspace">
+    <div class="workspace-intro"><p>A closer look.</p><span>Experimental research tool</span></div>
     <div class="workspace-context"><span id="workflow-label">Skin &amp; nail</span><span id="workflow-step">01 / Capture</span></div>
     <div class="workspace">
       <section class="camera-panel" aria-labelledby="view-heading">
@@ -84,8 +87,10 @@
         <p class="model-note" id="model-note">Loading the trained neural network…</p>
         </section>
     <section id="visual-analysis" class="visual-section" role="tabpanel" aria-labelledby="tab-skin">
-      <div class="visual-intro"><h1 id="visual-title">Skin &amp; nail review</h1><p id="skin-instruction">Capture a close-up of the area you want to review.</p></div>
-      <ul class="review-categories" id="review-categories"><li>Skin cancer warning signs</li><li>Fungal infection-like changes</li><li>Eczema-like changes</li><li>Psoriasis-like changes</li></ul>
+      <div class="visual-intro"><h1 id="visual-title">Skin &amp; nail review</h1><p id="skin-instruction">Capture a close-up of the area you want to review.</p>
+        <ol class="skin-review-steps"><li><strong>Take a clear photo</strong><span>Use even light. Keep the skin or nail in focus.</span></li><li><strong>Preview and give permission</strong><span>Check the photos and data-sharing notice before sending.</span></li><li><strong>Review and prepare a note</strong><span>Read the observations, explore their limits and decide what to share with a clinician.</span></li></ol>
+      </div>
+      <details class="review-categories" id="review-categories"><summary>What can this review describe?</summary><p>Visible patterns relevant to these categories. A photo cannot confirm or rule out any of them.</p><ul><li>Skin cancer warning signs</li><li>Fungal infection-like changes</li><li>Eczema-like changes</li><li>Psoriasis-like changes</li></ul></details>
 
       <p id="vision-remote-note" class="small-note" hidden>You chose remote visual analysis for this photo. Kera does not save the photos or observations. OpenRouter and the selected model provider’s data policies apply.</p>
       <div id="vision-busy" class="vision-busy" role="status" hidden><span class="vision-loader" aria-hidden="true"></span>Looking at the visible features… <button id="cancel-vision" class="text-button" hidden>Cancel request</button></div>
@@ -114,7 +119,7 @@
     <div class="region-help-shell">
       <div class="region-help-header"><h2 id="region-help-title" tabindex="-1">Photo and region guide</h2><button class="region-help-close" type="button" data-close-region-help aria-label="Close photo and region guide">×</button></div>
       <div class="region-help-body">
-        <section id="guide-skin"><h3>Take a clear skin or nail photo</h3><ol><li>Use even light. Keep the affected area in focus and fill the frame.</li><li>Take or upload your photo. You can add another angle of the same area.</li><li>Tap <strong>Continue</strong>, preview the photos and read the data-sharing notice. Photos are sent only after you check the consent box and tap <strong>Send photos</strong>.</li></ol><p>This experimental review cannot diagnose or rule out disease. Have concerning skin or nail changes assessed by a clinician.</p></section>
+        <section id="guide-skin"><h3>Take a clear skin or nail photo</h3><ol><li>Use even light. Keep the affected area in focus and fill the frame.</li><li>Take or upload your photo. You can add another angle of the same area.</li><li>Tap <strong>Preview photos</strong>, preview the photos and read the data-sharing notice. Photos are sent only after you check the consent box and tap <strong>Send photos</strong>.</li></ol><p>This experimental review cannot diagnose or rule out disease. Have concerning skin or nail changes assessed by a clinician.</p></section>
         <section id="guide-hb">
         <p>Use a clean, dry hand without nail polish. Ask a helper if needed.</p>
         <fieldset class="region-help-options"><legend>Choose your setup</legend><div class="region-help-choices">

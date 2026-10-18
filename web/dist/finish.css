@@ -1,0 +1,119 @@
+/* Kera's monochrome workspace: a dark capture instrument and a light reading sheet. */
+.header { height: 104px; border-bottom: 0; }
+.header .mode-tabs { align-self: center; gap: 4px; padding: 5px; background: var(--surface); border-radius: 12px; }
+.mode-tabs button { border: 0; border-radius: 8px; padding: 14px 22px; min-height: 50px; }
+.mode-tabs button[aria-selected=true] { background: var(--ink); color: white; }
+.mode-tabs button:hover:not([aria-selected=true]) { background: #deded9; }
+.guide-button { padding: 8px 0 8px 16px; }
+main { padding-top: 12px; }
+.workspace-intro { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; margin: 10px 0 28px; }
+.workspace-intro p { margin: 0; font-size: clamp(38px,4vw,56px); letter-spacing: -.035em; line-height: 1.1; }
+.workspace-intro > span { font-size: 15px; color: #50504c; }
+.workspace-context { font-size: 14px; letter-spacing: 0; text-transform: none; margin-bottom: 20px; color: #50504c; }
+.workspace-context span:first-child { font-weight: 600; color: var(--ink); }
+.workspace { gap: 32px; grid-template-columns: minmax(0,1.5fr) minmax(340px,1fr); }
+.camera-panel { padding: 20px; background: #e6e6e0; border-radius: 16px; }
+.view-heading { margin: 0 2px 16px; }
+.view-heading h2 { font-weight: 600; }
+.viewfinder { border-radius: 10px; height: clamp(340px,47vh,560px); }
+.empty-state h3 { font-size: clamp(28px,2.6vw,38px); letter-spacing: -.035em; }
+.empty-state .nail-mark { color: #f5f5f2; width: 50px; height: 58px; margin-bottom: 26px; }
+.empty-state p { font-size: 16px; color: #c7c7c0; }
+.empty-state .button { min-height: 52px; font-size: 17px; }
+.camera-toolbar { margin-top: 14px; gap: 16px; }
+.camera-toolbar #upload-button { text-decoration: underline; text-underline-offset: 5px; }
+.button { border-radius: 10px; font-size: 17px; }
+.button:hover:not(:disabled) { transform: translateY(-1px); }
+.scan-details { padding: 28px; background: white; border-radius: 16px; min-height: 0; }
+.visual-intro h1 { font-size: 36px; letter-spacing: -.035em; }
+.skin-review-steps { list-style: none; counter-reset: care-step; padding: 0; margin: 30px 0; }
+.skin-review-steps li { counter-increment: care-step; position: relative; padding: 0 0 24px 46px; margin: 0; }
+.skin-review-steps li:last-child { padding-bottom: 0; }
+.skin-review-steps li::before { content: counter(care-step); position: absolute; left: 0; top: 0; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: white; font-size: 15px; font-weight: 600; }
+.skin-review-steps strong { font-size: 18px; }
+.skin-review-steps span { margin-top: 6px; }
+.review-categories { margin: 26px 0; border-block: 1px solid #d9d9d5; }
+.review-categories > summary { padding-block: 18px; font-weight: 600; }
+.review-action .button { border-radius: 10px; }
+.review-action { padding-top: 4px; background: transparent; }
+.scan-details h2, .dialog-header h2 { letter-spacing: -.035em; }
+.guidance strong { font-weight: 600; }
+.region-button[aria-pressed=true] { background: #e9e9e5; }
+.footer { margin-top: 12px; }
+/* The review is a reading surface, with an overview distinct from optional detail. */
+.care-overview { background: var(--ink); color: white; border-radius: 12px; padding: 28px; margin-bottom: 32px; }
+.care-overview h2 { color: #cecec7; font-size: 20px; letter-spacing: 0; }
+.care-overview .care-headline { font-size: 28px; line-height: 1.25; letter-spacing: -.02em; }
+.care-overview .care-summary-copy { color: #e3e3dd; }
+.care-overview .care-text-size { border-color: #999993; color: white; }
+.care-overview .care-text-size[aria-pressed=true] { background: white; color: var(--ink); }
+.care-overview button:focus-visible, .care-overview summary:focus-visible { outline-color: white; }
+.care-next-step { padding-top: 22px; border-top: 1px solid #666661; }
+.care-next-step h3 { color: #cecec7; }
+.care-overview-actions .button { background: var(--bg); color: var(--ink); width: 100%; padding-inline: 16px; }
+.care-quality-detail > summary { color: white; }
+.care-finding > summary { padding: 20px 4px; }
+.care-finding[open] > summary { padding-bottom: 12px; }
+.care-finding-body { padding: 6px 4px 24px 22px; }
+.care-context { background: #f0f0ec; border-radius: 10px; padding: 0 16px; }
+.care-explanation { padding-bottom: 16px; }
+.care-note > summary { font-size: 23px; }
+.care-note textarea { background: white; border-radius: 8px; }
+.care-provenance > summary { color: #50504c; }
+.care-header { border-bottom: 1px solid #d9d9d5; }
+.care-main { padding-top: 40px; max-width: 1120px; }
+.care-title h1 { font-size: clamp(36px,4.6vw,56px); font-weight: 400; letter-spacing: -.035em; }
+.care-title p { color: #50504c; }
+.care-demo-notice { background: #e6e6e0; border-radius: 12px; }
+.care-example-controls { align-items: center; gap: 28px; }
+.care-example-controls select { background: white; border-radius: 8px; }
+.care-preview .care-review { background: white; padding: 28px; border-radius: 16px; }
+@media (max-width: 1050px) {
+  .workspace { grid-template-columns: minmax(0,1.1fr) minmax(300px,1fr); gap: 24px; }
+  .scan-details { padding: 22px; }
+  .camera-panel { padding: 16px; }
+  .care-overview { padding: 22px; }
+  .care-overview-top { flex-wrap: wrap; }
+}
+@media (min-width: 741px) and (max-width: 900px) {
+  .workspace { grid-template-columns: minmax(0,1fr); }
+  .viewfinder { height: clamp(340px,47vh,500px); }
+}
+@media (max-width: 740px) {
+  .header { min-height: 140px; height: auto; padding-top: 20px; padding-bottom: 12px; row-gap: 18px; }
+  .header .mode-tabs { padding: 4px; border-radius: 10px; gap: 4px; }
+  .mode-tabs button { min-height: 50px; padding: 12px 8px; border-radius: 7px; }
+  .workspace-intro { margin: 0 0 24px; display: block; }
+  .workspace-intro p { font-size: 38px; }
+  .workspace-intro > span { display: block; margin-top: 9px; font-size: 14px; }
+  main { padding-top: 16px; }
+  .workspace { gap: 24px; }
+  .camera-panel { padding: 14px; }
+  .viewfinder { height: auto; aspect-ratio: 1.1; }
+  .empty-state .nail-mark { width: 30px; height: 36px; margin-bottom: 16px; }
+  .empty-state h3 { font-size: 26px; }
+  .empty-state p { font-size: 14px; margin-bottom: 18px; }
+  .empty-state .button { font-size: 15px; min-height: 48px; padding-inline: 16px; }
+  .camera-toolbar { gap: 0 12px; }
+  body[data-analysis=skin] .camera-toolbar .text-button { font-size: 15px; }
+  .camera-toolbar .button { padding-inline: 12px; font-size: 14px; }
+  .camera-tools { min-width: 0; }
+  .scan-details { padding: 24px 20px; }
+  .visual-intro h1 { font-size: 30px; }
+  .care-overview { padding: 22px 18px; }
+  .care-overview .care-headline { font-size: 25px; }
+  .care-finding-body { padding-left: 4px; }
+  .care-context { padding-inline: 12px; }
+  .care-main { padding-top: 28px; }
+  .care-preview .care-review { padding: 18px 14px; }
+  .care-header { padding-block: 20px; }
+  .care-example-controls { gap: 8px 24px; }
+}
+@media (max-width: 374px) {
+  .camera-panel { padding: 10px; }
+  .scan-details { padding: 22px 16px; }
+  .camera-toolbar { column-gap: 8px; }
+  .camera-toolbar .button { padding-inline: 10px; }
+  .empty-state h3 { font-size: 24px; }
+  .empty-state { padding-inline: 8px; }
+}
