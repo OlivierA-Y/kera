@@ -61,6 +61,7 @@
         </div>
         <div id="annotate-panel" hidden>
           <div class="region-heading"><h2>Choose the regions.</h2><button id="region-help-button" class="region-help-button" type="button" aria-label="Help with taking a photo and choosing regions" aria-haspopup="dialog" aria-controls="region-help-dialog" title="Photo and region guide">?</button></div><p class="panel-copy">Draw a box around each area on your photo. Keep the regions separate.</p>
+          <button id="touch-editor-button" class="button secondary-button" aria-haspopup="dialog" aria-controls="touch-editor">Open touch editor ↗</button>
           <div class="region-buttons" role="group" aria-label="Choose a region to mark">
             <button class="region-button" data-region="nail" aria-pressed="true"><span class="region-check" aria-hidden="true"></span><span><strong>Middle nail</strong><small>The whole nail, from cuticle to tip</small></span><span class="region-edit" aria-hidden="true">↗</span></button>
             <button class="region-button" data-region="skin" aria-pressed="false"><span class="region-check" aria-hidden="true"></span><span><strong>Nearby skin</strong><small>Between the two joints on the middle finger</small></span><span class="region-edit" aria-hidden="true">↗</span></button>
@@ -73,7 +74,7 @@
           <p class="other-hand-tip">You can also scan the <strong>middle finger on your other hand</strong>. Keep the same lighting and distance.</p>
           <p class="averaging-note">Repeated photos may reduce variation. Improved accuracy has not been proven.</p>
           <p id="session-action-note" class="session-action-note">Mark all three regions, then choose a button below.</p>
-          <div class="session-buttons"><button id="predict-button" class="button dark-button" disabled>End scan now</button><button id="continue-scan" class="button secondary-button" disabled>Continue scanning</button></div>
+          <div id="session-button-slot"><div id="session-buttons" class="session-buttons"><button id="continue-scan" class="button secondary-button" disabled>Next scan</button><button id="predict-button" class="button dark-button" disabled>End scan now</button></div></div>
         </section>
         <div id="result-panel" hidden aria-live="polite">
           <h2>Your average estimate.</h2><div class="prediction"><span id="prediction-value">—</span><span class="prediction-unit">g/L</span></div><p class="result-caption">Average estimated hemoglobin</p><p id="average-caption" class="average-caption"></p><p class="result-context">An experimental average of your readings. This does not diagnose or rule out anemia. Averaging has not been clinically validated.</p><div id="quality-warnings" class="quality-warnings" hidden></div><p class="result-limitation">Low hemoglobin can be overestimated. Confirm any health concern with a clinician and a blood test.</p><button class="button dark-button" id="new-scan">Start a new scan</button>
@@ -94,6 +95,19 @@
     </div>
     <footer class="footer"><p>Kera — research in progress.</p><div><button class="text-button" id="about-button">About the model</button><button class="text-button" id="footer-about">Research notes ↗</button></div></footer>
   </main>
+  <div id="mobile-scan-dock" class="mobile-scan-dock" role="region" aria-label="Scan actions" hidden><p id="mobile-scan-note" role="status"></p></div>
+  <dialog id="touch-editor" aria-labelledby="touch-title">
+    <div class="touch-editor-header"><h2 id="touch-title">Mark middle nail</h2><button id="touch-close" class="icon-button" aria-label="Close touch editor">×</button></div>
+    <div class="touch-editor-body">
+      <div class="touch-regions" role="group" aria-label="Region to edit"><button data-touch-region="nail">Nail</button><button data-touch-region="skin">Skin</button><button data-touch-region="white">White</button></div>
+      <div class="touch-tools" role="group" aria-label="Photo editing tool"><button data-touch-tool="mark" aria-pressed="true">Mark box</button><button data-touch-tool="pan" aria-pressed="false">Move photo</button><button id="touch-redraw">Redraw</button></div>
+      <div class="touch-zoom"><button id="touch-zoom-out" aria-label="Zoom out">−</button><label for="touch-zoom">Zoom <span id="touch-zoom-value">1.0×</span></label><input id="touch-zoom" type="range" min="1" max="8" step="0.5" value="1"><button id="touch-zoom-in" aria-label="Zoom in">＋</button><button id="touch-reset-view">Fit</button></div>
+      <canvas id="touch-canvas" aria-label="Enlarged photo: tap two opposite corners to create a box, or choose Move photo to pan."></canvas>
+      <p id="touch-message" role="status">Tap two opposite corners.</p><p id="touch-readout" class="small-note"></p>
+      <details class="touch-adjust"><summary>Fine adjustment</summary><div role="group" aria-label="Move box"><button data-touch-adjust="left">← Left</button><button data-touch-adjust="up">↑ Up</button><button data-touch-adjust="down">↓ Down</button><button data-touch-adjust="right">Right →</button></div><div role="group" aria-label="Resize box"><button data-touch-adjust="wider">Wider</button><button data-touch-adjust="narrower">Narrower</button><button data-touch-adjust="taller">Taller</button><button data-touch-adjust="shorter">Shorter</button></div></details>
+    </div>
+    <div class="touch-editor-footer"><button id="touch-save" class="button dark-button" disabled>Save box &amp; continue</button><p>Only saved boxes are kept. Photos stay on your device.</p></div>
+  </dialog>
   <dialog id="region-help-dialog" aria-labelledby="region-help-title">
     <div class="region-help-shell">
       <div class="region-help-header"><h2 id="region-help-title" tabindex="-1">Photo and region guide</h2><button class="region-help-close" type="button" data-close-region-help aria-label="Close photo and region guide">×</button></div>

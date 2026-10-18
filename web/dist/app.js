@@ -1,3 +1,4 @@
+import { initializeTouchRegions } from './touch-regions.js';
 import { initializeVisualAnalysis } from './visual.js';
 import { validateModel, validateBox } from './ml.js';
 import { createScanProcessor } from './scan-processor.js';
@@ -14,6 +15,7 @@ const MAX_SCANS=100;
 const MAX_PENDING_SCANS=3,MAX_PENDING_BYTES=128*1024*1024;
 let scans=[],processor=createScanProcessor(),sessionVersion=0,currentScanId=null,finalizing=false,actionBusy=false,uploadBusy=false,averageController=null;
 const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null});
+const touchEditor=initializeTouchRegions({getState:()=>({source:photo,boxes,active,editable:analysis==='hb'&&mode==='photo'&&Boolean(snapshot)&&!currentScanId&&!finalizing&&!actionBusy&&!uploadBusy}),onSave:(kind,box)=>{selectRegion(kind);saveRegion(box);}});
 function photoNotice(message){notice(message+' Photos stay in your browser. Optional visual analysis requires permission to send photos.');}
 function show(id,yes){$(id).hidden=!yes;}
 function error(message){$('error').textContent=message;show('error',Boolean(message));}
@@ -22,7 +24,7 @@ function cameraStatus(text,live=false){$('camera-status').textContent=text;$('ca
 function stopTracks(){if(stream)stream.getTracks().forEach(track=>track.stop());stream=null;video.srcObject=null;}
 function stopCamera(){cameraRequest++;stopTracks();if(mode==='live')setMode('empty');}
 function setMode(next){
-  mode=next;
+  touchEditor.close();mode=next;
   show('empty-state',next==='empty');show('video',next==='live');show('photo',(next==='photo'||next==='result')&&Boolean(snapshot));
   show('session-complete-state',next==='result'&&!snapshot);
   show('frame-note',next==='live');show('drawing-prompt',next==='photo'&&analysis==='hb');
@@ -59,7 +61,7 @@ function renderAnalysis(){
 function selectAnalysis(next){
   if(next===analysis||finalizing||actionBusy||uploadBusy)return;
   if(next==='hb')visual.deactivate();
-  analysis=next;drag=null;
+  touchEditor.close();analysis=next;drag=null;
   if(next==='hb'&&hbResultReady){cameraRequest++;stopTracks();setMode('result');}
   else if(next==='skin'&&mode==='result')setMode(snapshot?'photo':'empty');
   else{renderAnalysis();renderSession();}
@@ -183,7 +185,7 @@ function updateRegions(){
 }
 function saveRegion(box){
   if(analysis!=='hb')return;
-  if(finalizing||currentScanId)throw new Error('This photo has already been added. Continue scanning to add another photo, or end the scan now.');
+  if(finalizing||currentScanId)throw new Error('This photo has already been added. Choose Next scan to add another photo, or end the scan now.');
   validateBox(box,photo.width,photo.height);
   if(box[3]-box[1]<3||box[2]-box[0]<3)throw new Error('Draw a slightly larger box, at least 3 pixels wide and high.');
   boxes[active]=box;error('');updateRegions();
@@ -229,6 +231,11 @@ function renderSession(){
   for(const scan of failed){const li=document.createElement('li');li.textContent=`Photo ${scan.number} was not included: ${scan.message}`;failures.append(li);}
   show('session-failures',failed.length>0);
   const blocked=finalizing||actionBusy||uploadBusy;
+  $('touch-editor-button').disabled=blocked||Boolean(currentScanId)||!snapshot;
+  const dockVisible=scanDockMedia.matches&&hb&&mode!=='result'&&(regionsMarked||scans.length>0);
+  show('mobile-scan-dock',dockVisible);document.body.classList.toggle('has-scan-dock',Boolean(dockVisible));
+  $('mobile-scan-note').textContent=finalizing?'Finishing your scan…':pending?`Processing ${pending} photo${pending===1?'':'s'}…`:regionsMarked?'Ready to add this photo':`${included} reading${included===1?'':'s'} ready`;
+
   const full=hb&&activeScanCount()>=MAX_SCANS,waitingForCapacity=currentReady()&&!full&&!hasWorkerCapacity();
   $('predict-button').disabled=blocked||(!currentReady()&&pending+included===0);
   $('continue-scan').disabled=blocked||(!currentReady()&&!currentScanId)||full||waitingForCapacity;
@@ -236,7 +243,7 @@ function renderSession(){
     full?'This session has reached 100 photos. Choose End scan now.':
     waitingForCapacity?'Photos are still processing. End scan now will wait and include this photo.':
     currentScanId?'This photo has been added. You can continue or try ending the scan again.':
-    currentReady()?'Both buttons add this photo. Continue scanning lets you take another.':
+    currentReady()?'Both buttons add this photo. Next scan lets you take another.':
     scans.length?'End now uses the photos already added. Finish marking this photo to include it.':'Mark all three regions, then choose a button below.';
   for(const id of ['tab-hb','tab-skin'])$(id).disabled=blocked;
   for(const button of document.querySelectorAll('[data-region]'))button.disabled=blocked||Boolean(currentScanId);
@@ -351,4 +358,9 @@ async function loadModel(){
   try{const response=await fetch(new URL('./assets/model.json',import.meta.url));if(!response.ok)throw new Error('Model download failed');model=validateModel(await response.json());$('model-note').textContent='Trained neural network. Runs on your device.';updateRegions();}
   catch(e){$('model-note').textContent='The trained model could not load. Reload the page to try again.';error('The trained model could not load. Check your connection and reload the app.');}
 }
+const scanDockMedia=matchMedia('(max-width: 740px)');
+function mountScanActions(){(scanDockMedia.matches?$('mobile-scan-dock'):$('session-button-slot')).append($('session-buttons'));renderSession();}
+scanDockMedia.addEventListener('change',mountScanActions);
+new ResizeObserver(()=>document.documentElement.style.setProperty('--scan-dock-height',$('mobile-scan-dock').getBoundingClientRect().height+'px')).observe($('mobile-scan-dock'));
+mountScanActions();
 setMode('empty');notice('Take or upload a close-up. Nothing is sent without your permission.');loadModel();
