@@ -1,6 +1,6 @@
 # Kera Camera
 
-A webcam app using the project's **actual trained three-seed MLP ensemble** for on-device hemoglobin estimation, plus optional OpenRouter vision observations of nail morphology. The numeric estimate stays in the browser. Visual observations send resized photos through OpenRouter to its selected model provider only after explicit consent.
+A webcam app using the project's **actual trained three-seed MLP ensemble** for on-device hemoglobin estimation, plus optional OpenRouter vision observations of nail morphology. Photos and individual model calculations stay in the browser; numeric readings go to the local Kera server for the final session average. Visual observations send resized photos through OpenRouter to its selected model provider only after explicit consent.
 
 ## Run locally
 
@@ -14,9 +14,18 @@ Open `http://localhost:4173`. A webcam requires browser permission and a secure 
 
 1. Turn on the camera and capture a photo with the middle fingernail, nearby skin, and plain white paper in the same light.
 2. Mark the whole middle nail, an intact skin area on the same finger, and a white-reference area. Draw directly on the photo or enter pixel coordinates in the accessible form. Each completed region advances the selection automatically; select it again to redraw.
-3. Choose **Get estimate**. The result is a continuous hemoglobin estimate in g/L, with photo-quality warnings when applicable.
+3. Choose **Continue scanning** to add this photo and take or upload another. Each photo needs its own three region annotations. Processing runs in a Web Worker, so the interface stays available before earlier readings finish.
+4. Choose **End scan now** to add the current marked photo, wait for pending readings, and display one average in g/L. You can also end while preparing the next photo; only photos already added are used. Individual readings stay hidden. The final result shows the number of included readings and every quality warning. Unreadable photos are explicitly identified and left out. **Start a new scan** clears the session.
 
-The camera stops when you capture, stop the feed, leave the page, or replace it with an uploaded image. A retake clears the previous prediction. Photos are kept only in page memory; the browser/OS may have their own lifecycle behavior. No history, accounts, analytics, or photo storage is added by this app.
+## Averaged scan sessions
+
+The browser retains full-precision predictions and sends only `{readings:[{id,hemoglobin_g_per_l,warnings}]}` to the local Node server at `POST /api/scans/average` when the session ends. The backend validates the batch, takes the arithmetic mean of every supplied reading, and returns `{hemoglobin_g_per_l,scan_count,warnings}`. Values are rounded only for the final display. No photos or colour features are sent to this endpoint. Nothing is saved to disk or sent to an external service. A failed averaging request can be retried without adding duplicate readings.
+
+Sessions support up to 100 included readings and are held only in page memory; reloading or leaving the page clears them. At most three images and 128 MiB of queued pixels are processed at once. A stalled worker times out after 60 seconds and can restart. A single-photo session returns that one reading. The local Node server is required for the final average; a static file server alone cannot complete a scan session. No API key is needed for averaging.
+
+The interface suggests trying the middle finger on the other hand while keeping the same camera, lighting and distance. Repeated readings may reduce random variation, but improved accuracy for this model and multi-hand setup has not been established. Averaging does not remove systematic bias, make poor photos reliable, diagnose anemia, or replace clinical blood tests.
+
+The camera stops when you capture, stop the feed, end the session, leave the page, or replace it with an uploaded image. Retake replaces the current photo and its regions; previously added readings remain in the session. Photos are kept only in page memory; the browser/OS may have their own lifecycle behavior. No history, accounts, analytics, or photo storage is added by this app.
 
 ## Optional visual observations
 
@@ -58,12 +67,13 @@ npm --prefix web test
 The 17 vision unit/integration tests use a synthetic gray JPEG and an injected provider; they never contact OpenRouter. They cover consent, input validation, origins, credential isolation, structured findings, refusal, errors, missing side views, unusable images, request limits and timeout handling. Browser vision tests additionally exercise consent, optional side photos, results, failure, cancellation, replacing photos during analysis and responsive layouts. They use a local mock provider, not a simulated production result.
 
 
-- Eight Node tests cover CPU parity, feature ordering/normalization, NumPy-style percentile interpolation, central crop geometry, input validation, overlap/reference rejection, quality warnings and schema checks.
-- Thirteen Chrome integration checks cover initial loading, simulated live media, capture/releasing tracks, actual mouse selection, upload/coordinate selection, prediction, invalid annotations, model notes, network privacy, no JavaScript exceptions, tablet/mobile overflow, and permission-denial fallback.
+- Eight worker tests cover real inference, image ownership, concurrent routing, errors, timeout and recovery. Eleven averaging tests cover arithmetic precision, warning retention, invalid input and endpoint security.
+- Eight model tests cover CPU parity, feature ordering/normalization, NumPy-style percentile interpolation, central crop geometry, input validation, overlap/reference rejection, quality warnings and schema checks.
+- Chrome integration checks cover initial loading, simulated live media, capture/releasing tracks, actual mouse selection, upload/coordinate selection, prediction, invalid annotations, model notes, network privacy, no JavaScript exceptions, tablet/mobile overflow, and permission-denial fallback.
 - Physical webcam hardware was not verified. Chrome's test media device exercises the real getUserMedia/capture code path.
 - Responsive screenshots at 1440, 768 and 390 pixels and browser test reports are local in ignored `reports/`. These include a public-study image used for local testing and are excluded from the hosted source and deployment.
 
-`tests/browser.mjs` and `tests/vision-browser.mjs` use the consulted taste skill's zero-dependency Chrome helper. Its import path is specific to this development environment and it needs an installed Chrome plus the original dataset image 1 for the upload smoke test. The production app has no dependency on that helper, Python, PyTorch, or the dataset. The 25 inference/API tests need only Node >=22 and the checked-in fixtures. The vision browser test uses its synthetic fixture and never needs the dataset. Run `node web/tests/vision-browser.mjs` from the repository root.
+`tests/browser.mjs` and `tests/vision-browser.mjs` use the consulted taste skill's zero-dependency Chrome helper. Its import path is specific to this development environment and it needs an installed Chrome plus the original dataset image 1 for the upload smoke test. The production app has no dependency on that helper, Python, PyTorch, or the dataset. The 44 model, worker and API tests need only Node >=22 and the checked-in fixtures. The vision browser test uses its synthetic fixture and never needs the dataset. Run `node web/tests/vision-browser.mjs` from the repository root.
 
 ## Design
 
@@ -73,7 +83,7 @@ The skill's marketing-page image-count, footage, and motion-floor rules are docu
 
 ## Hosting
 
-Run `server.mjs` for both the app and optional vision endpoint. A static host can still run the local hemoglobin model, but cannot serve visual analysis. The standalone archive includes the static assets, Node server, configuration example and this guide. The private Site previously registered for the static app has not been deployed; there is no public deployment of the vision backend.
+Run `server.mjs` for both the app and optional vision endpoint. A static host can serve the interface, but averaged scan sessions and optional visual analysis require the local Node server. The standalone archive includes the static assets, Node server, configuration example and this guide. The private Site previously registered for the static app has not been deployed; there is no public deployment of the vision backend.
 
 ## Research limitations
 

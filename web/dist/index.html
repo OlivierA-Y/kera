@@ -32,6 +32,7 @@
             <p>Keep your middle finger and<br>a white reference in view.</p>
             <button id="start-camera" class="button light-button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m9 4-2 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2-3Z"/><circle cx="12" cy="13" r="4"/></svg>Turn on camera</button>
           </div>
+          <div id="session-complete-state" class="empty-state" hidden><h3>Scan complete.</h3><p>Your average is ready.<br>You can start a new scan when you’re ready.</p></div>
           <span class="frame-note" id="frame-note" hidden>Keep your hand still. Take your time.</span>
           <span id="drawing-prompt" class="drawing-prompt" hidden>Draw around the middle fingernail</span>
         </div>
@@ -40,15 +41,18 @@
           <button id="capture-button" class="button dark-button" disabled><span class="shutter-icon" aria-hidden="true"></span>Take photo</button>
           <button id="retake-button" class="button dark-button" hidden>Retake photo <span aria-hidden="true">↻</span></button>
         </div>
-        <p id="notice" class="notice" role="status" aria-live="polite">Hemoglobin estimation stays on your device. Optional visual analysis sends photos only with your permission.</p>
+        <p id="notice" class="notice" role="status" aria-live="polite">Photos stay in your browser. Optional visual analysis sends photos only with your permission.</p>
         <div id="error" class="error" role="alert" hidden></div>
       </section>
 
       <aside class="scan-details">
+        <section id="scan-session" class="scan-session" aria-label="Scan progress" hidden>
+          <p id="session-count" class="session-count"></p><p id="session-progress" role="status" aria-live="polite"></p><ul id="session-failures" role="alert" hidden></ul>
+        </section>
         <div id="prepare-panel">
           <h2>A little preparation.<br>A better photo.</h2>
           <div class="guidance"><p><strong>Find even light.</strong><br>Use diffused, neutral light. Avoid glare and deep shadows.</p><p><strong>Make room for white.</strong><br>Place plain white paper beside your finger, in the same light.</p><p><strong>Show your middle nail.</strong><br>Keep the whole nail and nearby skin visible, without nail polish.</p></div>
-          <div class="next-note"><span class="tiny-nail" aria-hidden="true"></span><p>After capture, you’ll mark three small regions. Kera takes it from there.</p></div>
+          <div class="next-note"><span class="tiny-nail" aria-hidden="true"></span><p>After capture, you’ll mark three small regions.</p></div>
         </div>
         <div id="annotate-panel" hidden>
           <div class="region-heading"><h2>Choose the regions.</h2><button id="region-help-button" class="region-help-button" type="button" aria-label="Help with taking a photo and choosing regions" aria-haspopup="dialog" aria-controls="region-help-dialog" title="Photo and region guide">?</button></div><p class="panel-copy">Draw a box around each area on your photo. Keep the regions separate.</p>
@@ -58,11 +62,16 @@
             <button class="region-button" data-region="white" aria-pressed="false"><span class="region-check" aria-hidden="true"></span><span><strong>White reference</strong><small>Plain white paper in the same light</small></span><span class="region-edit" aria-hidden="true">↗</span></button>
           </div>
           <details class="coordinate-details"><summary>Enter region coordinates</summary><p>For the selected region, in photo pixels.</p><form id="coordinate-form"><div class="coordinate-inputs"><label>Left<input id="coord-left" name="left" inputmode="numeric" type="number" min="0" required></label><label>Top<input id="coord-top" name="top" inputmode="numeric" type="number" min="0" required></label><label>Width<input id="coord-width" name="width" inputmode="numeric" type="number" min="2" required></label><label>Height<input id="coord-height" name="height" inputmode="numeric" type="number" min="2" required></label></div><button type="submit" class="text-button">Apply region ↗</button></form></details>
-          <button id="predict-button" class="button dark-button predict-button" disabled>Mark all three regions</button>
           <p class="small-note" id="region-count" aria-live="polite">No regions marked yet.</p>
         </div>
+        <section id="session-actions" class="session-actions" aria-label="Finish or continue your scan" hidden>
+          <p class="other-hand-tip">You can also scan the <strong>middle finger on your other hand</strong>. Keep the same lighting and distance.</p>
+          <p class="averaging-note">Repeated photos may reduce variation. Improved accuracy has not been proven.</p>
+          <p id="session-action-note" class="session-action-note">Mark all three regions, then choose a button below.</p>
+          <div class="session-buttons"><button id="predict-button" class="button dark-button" disabled>End scan now</button><button id="continue-scan" class="button secondary-button" disabled>Continue scanning</button></div>
+        </section>
         <div id="result-panel" hidden aria-live="polite">
-          <h2>Your estimate.</h2><div class="prediction"><span id="prediction-value">—</span><span class="prediction-unit">g/L</span></div><p class="result-caption">Estimated hemoglobin</p><p class="result-context">An experimental reading from your photo. This does not diagnose or rule out anemia.</p><div id="quality-warnings" class="quality-warnings" hidden></div><p class="result-limitation">Low hemoglobin can be overestimated. Confirm any health concern with a clinician and a blood test.</p><button class="button dark-button" id="new-scan">Take another photo ↗</button><button id="edit-regions" class="text-button edit-regions">Adjust regions</button>
+          <h2>Your average estimate.</h2><div class="prediction"><span id="prediction-value">—</span><span class="prediction-unit">g/L</span></div><p class="result-caption">Average estimated hemoglobin</p><p id="average-caption" class="average-caption"></p><p class="result-context">An experimental average of your readings. This does not diagnose or rule out anemia. Averaging has not been clinically validated.</p><div id="quality-warnings" class="quality-warnings" hidden></div><p class="result-limitation">Low hemoglobin can be overestimated. Confirm any health concern with a clinician and a blood test.</p><button class="button dark-button" id="new-scan">Start a new scan</button>
         </div>
         <p class="model-note" id="model-note">Loading the trained neural network…</p>
       </aside>
@@ -110,13 +119,13 @@
             <li><strong>Nearby skin:</strong> on the same finger, box clear skin between the joint nearest the nail and the next joint towards your hand. Keep joint creases out.</li>
             <li><strong>White reference:</strong> box an evenly lit area inside the white patch or white paper.</li>
           </ol>
-          <p>Keep the three boxes separate. Then tap <strong>Get estimate</strong>.</p>
+          <p>Keep the three boxes separate. Choose <strong>Continue scanning</strong> to add this photo and take another, or <strong>End scan now</strong> to see one average result.</p>
         </section>
       </div>
       <div class="region-help-footer"><button class="button dark-button" type="button" data-close-region-help>Back to marking</button></div>
     </div>
   </dialog>
-  <dialog id="model-dialog" aria-labelledby="dialog-title"><div class="dialog-header"><h2 id="dialog-title">A note on the model.</h2><button class="icon-button close-dialog" aria-label="Close model notes">×</button></div><p>Kera estimates hemoglobin from 42 color measurements of a middle fingernail and nearby skin, normalized to a white reference in the same photo.</p><p>This app runs the trained three-network ensemble entirely on your device: 42 inputs, 16 and 8 hidden neurons, and one output. It uses the frozen PyTorch weights exported from this project. Hemoglobin estimation stays on your device. If you choose the separate visual-observations feature, Kera sends the photos you preview to OpenRouter only after your permission. Kera does not save those photos or observations. OpenRouter and the selected model provider’s data policies apply.</p><div class="model-stat"><strong>15.96 g/L</strong><span>Mean absolute error on the study’s 50 held-out patients. This is an aggregate study result, not a margin of error for your reading.</span></div><p>The study used a controlled Logitech camera and lighting setup. Ordinary webcams and Kera Dock have not been independently validated. Low hemoglobin was often overestimated. Nail polish, skin differences, white balance, and glare can further affect results.</p><p>The ensemble was frozen before the held-out evaluation. The project’s cross-validation-selected deployment baseline remains Elastic Net; this app uses the neural network as requested.</p><p><a href="https://www.nature.com/articles/s41597-024-03895-9" target="_blank" rel="noopener noreferrer">Read the original study ↗</a></p><button class="button dark-button close-dialog">Back to camera</button></dialog>
+  <dialog id="model-dialog" aria-labelledby="dialog-title"><div class="dialog-header"><h2 id="dialog-title">A note on the model.</h2><button class="icon-button close-dialog" aria-label="Close model notes">×</button></div><p>Kera estimates hemoglobin from 42 color measurements of a middle fingernail and nearby skin, normalized to a white reference in the same photo.</p><p>This app runs the trained three-network ensemble entirely on your device: 42 inputs, 16 and 8 hidden neurons, and one output. It uses the frozen PyTorch weights exported from this project. Photos stay in your browser. At the end of a scan session, numeric readings go to your local Kera server for averaging. Averaging has not been clinically validated. If you choose the separate visual-observations feature, Kera sends the photos you preview to OpenRouter only after your permission. Kera does not save those photos or observations. OpenRouter and the selected model provider’s data policies apply.</p><div class="model-stat"><strong>15.96 g/L</strong><span>Mean absolute error on the study’s 50 held-out patients. This is an aggregate study result, not a margin of error for your reading.</span></div><p>The study used a controlled Logitech camera and lighting setup. Ordinary webcams and Kera Dock have not been independently validated. Low hemoglobin was often overestimated. Nail polish, skin differences, white balance, and glare can further affect results.</p><p>The ensemble was frozen before the held-out evaluation. The project’s cross-validation-selected deployment baseline remains Elastic Net; this app uses the neural network as requested.</p><p><a href="https://www.nature.com/articles/s41597-024-03895-9" target="_blank" rel="noopener noreferrer">Read the original study ↗</a></p><button class="button dark-button close-dialog">Back to camera</button></dialog>
   <dialog id="vision-dialog" aria-labelledby="vision-dialog-title">
     <div class="dialog-header"><h2 id="vision-dialog-title">A second look, with permission.</h2><button id="close-vision" class="icon-button" aria-label="Close visual analysis">×</button></div>
     <p>Send these photos through OpenRouter to its selected model provider to describe visible nail features. This experimental feature cannot diagnose a condition or confirm that a nail is healthy.</p>

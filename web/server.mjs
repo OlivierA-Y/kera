@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { analyzePhotos, validateObservation, VisionError } from './server/vision.mjs';
+import { averageReadings, MAX_AVERAGE_BODY } from './server/averaging.mjs';
 
 const ROOT = fileURLToPath(new URL('./dist/', import.meta.url));
 const MAX_BODY = 5_000_000;
@@ -14,15 +15,15 @@ const LIMITATION = 'Experimental visual observations, not a diagnosis. A feature
 function json(res, status, value) {
   res.writeHead(status, { 'Content-Type':'application/json', 'Cache-Control':'no-store' });res.end(JSON.stringify(value));
 }
-async function readJson(req) {
+async function readJson(req, { maxBody=MAX_BODY, tooLarge='The photos are too large. Use smaller images.', invalidJson='The image request could not be read.' }={}) {
   let size=0;const buffers=[];
-  for await (const buffer of req) {
+  for await (const buffer of req.iterator({destroyOnReturn:false})) {
     size+=buffer.length;
-    if (size>MAX_BODY) throw new VisionError(413,'too_large','The photos are too large. Use smaller images.');
+    if (size>maxBody) { req.resume();throw new VisionError(413,'too_large',tooLarge); }
     buffers.push(buffer);
   }
   try { return JSON.parse(Buffer.concat(buffers).toString('utf8')); }
-  catch { throw new VisionError(400,'invalid_json','The image request could not be read.'); }
+  catch { throw new VisionError(400,'invalid_json',invalidJson); }
 }
 export function validateInput(body) {
   if (body?.consent !== true) throw new VisionError(400,'consent_required','Permission is required before photos can be sent for visual analysis.');
@@ -52,6 +53,14 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
       const host=req.headers.host;
       if (!host || !new Set([`localhost:${server.address().port}`,`127.0.0.1:${server.address().port}`,`[::1]:${server.address().port}`]).has(host)) throw new VisionError(403,'invalid_host','This local server accepts localhost requests only.');
       const url=new URL(req.url,`http://${host}`);
+      if (url.pathname==='/api/scans/average') {
+        if (req.method!=='POST') throw new VisionError(405,'method_not_allowed','Use POST to average scans.');
+        if (req.headers.origin!==`http://${host}` || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Scan averaging must start from this app.');
+        if (req.headers['content-type']?.split(';')[0].trim()!=='application/json') throw new VisionError(415,'invalid_type','Use a JSON scan request.');
+        if (Number(req.headers['content-length']||0)>MAX_AVERAGE_BODY) throw new VisionError(413,'too_large','The scan request is too large. Send at most 100 short readings.');
+        const body=await readJson(req,{maxBody:MAX_AVERAGE_BODY,tooLarge:'The scan request is too large. Send at most 100 short readings.',invalidJson:'The scan request could not be read.'});
+        return json(res,200,averageReadings(body));
+      }
       if (url.pathname==='/api/vision/status' && req.method==='GET') return json(res,200,{configured:Boolean(apiKey),provider:'OpenRouter',model:apiKey?model:null,dataCollection:allowDataCollection?'allowed':'denied',privacy:'Photos are sent through OpenRouter to its selected model provider only after explicit permission. Kera does not save photos or observations.'});
       if (url.pathname==='/api/vision/analyze') {
         if (req.method!=='POST') throw new VisionError(405,'method_not_allowed','Use POST for visual analysis.');
