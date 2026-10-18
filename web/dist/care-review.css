@@ -13,18 +13,18 @@
 .care-example-controls select { min-height: 48px; min-width: 220px; padding: 10px 36px 10px 12px; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--muted); border-radius: 4px; }
 .care-example-controls button { min-height: 48px; }
 .care-preview select:focus-visible, .care-preview textarea:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
-.care-preview-status { font-size: 14px; color: #50504c; line-height: 1.5; margin: 14px 0 32px; min-height: 21px; }
+.care-preview-status { font-size: 14px; color: #505050; line-height: 1.5; margin: 14px 0 32px; min-height: 21px; }
 .care-columns { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 64px; align-items: start; }
 .care-columns h2 { font-size: 26px; font-weight: 500; letter-spacing: -.025em; line-height: 1.2; margin: 0 0 16px; }
 .care-columns p { font-size: 16px; line-height: 1.55; max-width: 70ch; }
-.care-finding { padding: 25px 0; border-bottom: 1px solid #d9d9d5; }
+.care-finding { padding: 25px 0; border-bottom: 1px solid #d9d9d9; }
 .care-finding h3 { font-size: 18px; font-weight: 600; line-height: 1.4; margin: 0 0 8px; }
-.care-finding .care-state { margin: 0 0 12px; color: #50504c; font-size: 14px; }
+.care-finding .care-state { margin: 0 0 12px; color: #505050; font-size: 14px; }
 .care-finding p { margin: 0 0 12px; overflow-wrap: anywhere; }
 .care-context { margin-top: 24px; }
 .care-context h4 { font-size: 16px; line-height: 1.5; margin: 0 0 8px; }
 .care-context a { display: inline-block; font-size: 15px; line-height: 1.5; padding-block: 10px; text-underline-offset: 4px; }
-.care-columns .care-caution, .care-provenance { color: #50504c; font-size: 14px; line-height: 1.55; }
+.care-columns .care-caution, .care-provenance { color: #505050; font-size: 14px; line-height: 1.55; }
 .care-note { min-width: 0; }
 .care-note .care-note-warning { font-weight: 600; margin-bottom: 12px; }
 .care-note label { display: block; font-size: 15px; margin: 24px 0 10px; }
@@ -67,7 +67,7 @@
 .care-review textarea:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
 .care-finding-title { display: inline; }
 .care-finding-title > span:first-child { font-weight: 600; }
-.care-review .care-state { display: block; padding-left: 22px; margin: 4px 0 0; color: #50504c; font-size: 16px; }
+.care-review .care-state { display: block; padding-left: 22px; margin: 4px 0 0; color: #505050; font-size: 16px; }
 .care-finding-body { padding: 6px 4px 22px; }
 .care-finding-body h3 { font-size: 17px; font-weight: 600; margin: 12px 0 8px; }
 .care-review .care-finding-body > p { margin: 0 0 18px; }
@@ -81,8 +81,8 @@
 .care-context a, .care-provenance > a { display: block; padding: 14px 0; text-underline-offset: 4px; }
 .care-uncertain-group { margin-top: 22px; }
 .care-uncertain-group > summary { font-weight: 600; }
-.care-uncertain-group > p { color: #50504c; margin: 0 0 12px; }
-.care-note { margin-top: 32px; border-block: 1px solid #bdbdb7; padding: 4px 0; scroll-margin-top: 20px; }
+.care-uncertain-group > p { color: #505050; margin: 0 0 12px; }
+.care-note { margin-top: 32px; border-block: 1px solid #bdbdbd; padding: 4px 0; scroll-margin-top: 20px; }
 .care-note > summary { font-weight: 600; font-size: 22px; }
 .care-note textarea, #vision-results .care-note textarea { min-height: 280px; max-height: 65vh; font-size: var(--care-reading-size); }
 .care-note > button { font-size: 18px; min-height: 54px; margin-top: 18px; }
@@ -90,19 +90,15 @@
 .care-provenance { max-width: none; margin-top: 22px; }
 .care-provenance > summary { font-weight: 600; }
 .care-provenance p { margin: 12px 0 18px; }
-body[data-analysis=skin] .camera-toolbar .text-button,
-body[data-analysis=skin] .mode-tabs button,
-body[data-analysis=skin] .guide-button { min-height: 52px; font-size: 18px; }
 body[data-analysis=skin] .review-limitation,
 body[data-analysis=skin] .permission-note,
 body[data-analysis=skin] #vision-remote-note,
 body[data-analysis=skin] #vision-dialog .small-note,
 body[data-analysis=skin] .review-categories li { font-size: 16px; line-height: 1.6; }
-body[data-analysis=skin] .visual-intro p { font-size: 18px; }
 .skin-review-steps { margin: 28px 0; padding-left: 26px; }
 .skin-review-steps li { padding-left: 8px; margin-bottom: 22px; font-size: 18px; line-height: 1.5; }
 .skin-review-steps strong, .skin-review-steps span { display: block; }
-.skin-review-steps span { font-size: 16px; margin-top: 5px; color: #50504c; }
+.skin-review-steps span { font-size: 16px; margin-top: 5px; color: #505050; }
 .review-categories > summary { font-size: 18px; line-height: 1.5; min-height: 52px; padding: 12px 0; cursor: pointer; }
 .review-categories > p { font-size: 16px; line-height: 1.6; }
 .review-categories > ul { list-style: none; margin: 0; padding: 0; }
