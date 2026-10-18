@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { request } from 'node:http';
 import { createApp, validateInput } from '../server.mjs';
 import { FINDINGS, buildRequest, validateObservation, parseProviderResponse, analyzePhotos } from '../server/vision.mjs';
-// Synthetic gray image for local transport tests. Tests NEVER contact OpenAI.
+// Synthetic gray image for local transport tests. Tests NEVER contact OpenRouter.
 const image='data:image/jpeg;base64,'+readFileSync(new URL('./fixtures/synthetic.jpg',import.meta.url)).toString('base64');
 const photos=[{view:'top',data_url:image}];
 const body={consent:true,photos};
@@ -15,8 +15,8 @@ async function fixture(options,fn){
  try{await fn(base);}finally{await new Promise(resolve=>server.close(resolve));}
 }
 function post(base,value=body,headers={}){return fetch(base+'/api/vision/analyze',{method:'POST',headers:{'Content-Type':'application/json',Origin:base,...headers},body:JSON.stringify(value)});}
-test('Responses payload uses images, strict morphology schema, no persistence and no tools',()=>{
- const request=buildRequest(photos,'gpt-4.1');assert.equal(request.store,false);assert.equal(request.text.format.strict,true);assert.equal(request.input[0].content[1].type,'input_image');assert.equal(request.tools,undefined);assert.ok(!JSON.stringify(request).includes('Bearer'));
+test('OpenRouter payload uses images, strict morphology schema, privacy routing and no tools',()=>{
+ const request=buildRequest(photos,'google/gemini-2.5-flash');assert.equal(request.provider.data_collection,'deny');assert.equal(request.provider.require_parameters,true);assert.equal(request.response_format.json_schema.strict,true);assert.equal(request.messages[1].content[1].type,'image_url');assert.equal(request.messages[1].content[1].image_url.url,image);assert.equal(request.stream,false);assert.equal(request.tools,undefined);assert.ok(!JSON.stringify(request).includes('Bearer'));
 });
 test('Consent, image payload, required top view and duplicate views are validated',()=>{
  assert.throws(()=>validateInput({...body,consent:false}),/Permission/);
@@ -41,20 +41,20 @@ test('Diagnostic and unvalidated confidence prose fail closed',()=>{
  }
 });
 test('Provider refusal, incomplete or malformed output returns no observations',()=>{
- assert.throws(()=>parseProviderResponse({status:'completed',output:[{content:[{type:'refusal',refusal:'No'}]}]},false),/could not assess/);
- assert.throws(()=>parseProviderResponse({status:'incomplete',output:[]},false),/did not finish/);
- assert.throws(()=>parseProviderResponse({status:'completed',output:[{content:[{type:'output_text',text:'not JSON'}]}]},false),/unreadable/);
+ assert.throws(()=>parseProviderResponse({choices:[{finish_reason:'stop',message:{role:'assistant',refusal:'No'}}]},false),/could not assess/);
+ assert.throws(()=>parseProviderResponse({choices:[{finish_reason:'length',message:{role:'assistant',content:'{}'}}]},false),/did not finish/);
+ assert.throws(()=>parseProviderResponse({choices:[{finish_reason:'stop',message:{role:'assistant',content:'not JSON'}}]},false),/unreadable/);
 });
 test('Provider call uses fixed HTTPS endpoint, server-only bearer and parsed output',async()=>{
  let payload;
- const result=await analyzePhotos(photos,{apiKey:'test-not-a-secret',model:'gpt-4.1',fetchImpl:async(url,options)=>{
-  assert.equal(url,'https://api.openai.com/v1/responses');assert.equal(options.headers.Authorization,'Bearer test-not-a-secret');payload=JSON.parse(options.body);
-  return new Response(JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(observation())}]}]}),{status:200});
+ const result=await analyzePhotos(photos,{apiKey:'test-not-a-secret',model:'google/gemini-2.5-flash',fetchImpl:async(url,options)=>{
+  assert.equal(url,'https://openrouter.ai/api/v1/chat/completions');assert.equal(options.headers.Authorization,'Bearer test-not-a-secret');payload=JSON.parse(options.body);
+  return new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{role:'assistant',content:JSON.stringify(observation())}}]}),{status:200});
  }});
- assert.equal(payload.store,false);assert.equal(result.observations.clubbing.status,'unclear');
+ assert.equal(payload.provider.data_collection,'deny');assert.equal(payload.model,'google/gemini-2.5-flash');assert.equal(result.observations.clubbing.status,'unclear');
 });
 test('Provider errors never leak arbitrary response details',async()=>{
- for(const status of [401,403,429,500])await assert.rejects(analyzePhotos(photos,{apiKey:'test',model:'gpt-4.1',fetchImpl:async()=>new Response('SECRET PROVIDER DETAIL',{status})}),e=>!e.message.includes('SECRET'));
+ for(const status of [401,402,403,429,500])await assert.rejects(analyzePhotos(photos,{apiKey:'test',model:'google/gemini-2.5-flash',fetchImpl:async()=>new Response('SECRET PROVIDER DETAIL',{status})}),e=>!e.message.includes('SECRET'));
 });
 test('Static app works without a key; API cannot read environment or server source',async()=>{
  await fixture({apiKey:''},async base=>{
@@ -77,7 +77,7 @@ test('Missing consent, hostile origin, method, Host and media type never call pr
 test('Successful API returns structured observations without photos or credentials',async()=>{
  await fixture({apiKey:'test-hidden-key',provider:async()=>observation()},async base=>{
   const response=await post(base);assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');
-  const result=await response.json();assert.equal(result.provider,'OpenAI');assert.equal(result.observations.clubbing.status,'unclear');assert.ok(result.limitation.includes('not a diagnosis'));
+  const result=await response.json();assert.equal(result.provider,'OpenRouter');assert.equal(result.observations.clubbing.status,'unclear');assert.ok(result.limitation.includes('not a diagnosis'));
   const serialized=JSON.stringify(result);assert.ok(!serialized.includes('test-hidden-key'));assert.ok(!serialized.includes('base64'));
  });
 });

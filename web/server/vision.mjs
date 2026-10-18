@@ -68,27 +68,30 @@ export function validateObservation(value, hasSide) {
 }
 export function buildRequest(photos, model) {
   return {
-    model, store: false, max_output_tokens: 1800, instructions: INSTRUCTIONS,
-    input: [{ role:'user', content: photos.flatMap(photo => [
-      { type:'input_text', text:`${photo.view === 'top' ? 'Top' : 'Side'} view of the same finger. Describe visible morphology only.` },
-      { type:'input_image', image_url:photo.data_url, detail:'high' },
-    ]) }],
-    text: { format: { type:'json_schema', name:'nail_observations', strict:true, schema:SCHEMA } },
+    model, max_tokens: 4096, stream: false,
+    provider: { require_parameters: true, data_collection: 'deny' },
+    messages: [
+      { role:'system', content:INSTRUCTIONS },
+      { role:'user', content: photos.flatMap(photo => [
+        { type:'text', text:`${photo.view === 'top' ? 'Top' : 'Side'} view of the same finger. Describe visible morphology only.` },
+        { type:'image_url', image_url:{ url:photo.data_url, detail:'high' } },
+      ]) },
+    ],
+    response_format: { type:'json_schema', json_schema:{ name:'nail_observations', strict:true, schema:SCHEMA } },
   };
 }
 export function parseProviderResponse(body, hasSide) {
-  if (body.status !== 'completed' || !Array.isArray(body.output)) throw new VisionError(502,'incomplete_output','The vision service did not finish. No observations were returned.');
-  const content = body.output.flatMap(item => Array.isArray(item.content) ? item.content : []);
-  if (content.some(item => item.type === 'refusal')) throw new VisionError(422,'provider_refused','The vision service could not assess these photos. No observations were returned.');
-  const text = content.filter(item => item.type === 'output_text').map(item => item.text).join('');
+  const choice = body?.choices?.[0];
+  if (choice?.message?.refusal || choice?.finish_reason === 'content_filter') throw new VisionError(422,'provider_refused','The vision service could not assess these photos. No observations were returned.');
+  if (body?.error || choice?.finish_reason !== 'stop' || choice.message?.role !== 'assistant') throw new VisionError(502,'incomplete_output','The vision service did not finish. No observations were returned.');
   let value;
-  try { value = JSON.parse(text); } catch { throw new VisionError(502,'invalid_output','The vision service returned an unreadable observation. Try again.'); }
+  try { value = JSON.parse(choice.message.content); } catch { throw new VisionError(502,'invalid_output','The vision service returned an unreadable observation. Try again.'); }
   return validateObservation(value, hasSide);
 }
 export async function analyzePhotos(photos, { apiKey, model, signal, fetchImpl = fetch }) {
   let response;
   try {
-    response = await fetchImpl('https://api.openai.com/v1/responses', {
+    response = await fetchImpl('https://openrouter.ai/api/v1/chat/completions', {
       method:'POST', headers:{ 'Authorization':`Bearer ${apiKey}`, 'Content-Type':'application/json' },
       body:JSON.stringify(buildRequest(photos, model)), signal,
     });
@@ -97,7 +100,7 @@ export async function analyzePhotos(photos, { apiKey, model, signal, fetchImpl =
     throw new VisionError(502,'provider_unreachable','The vision service could not be reached. Check the server connection and try again.');
   }
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) throw new VisionError(503,'provider_auth','The server’s vision connection needs attention. Hemoglobin estimation still works locally.');
+    if ([401,402,403].includes(response.status)) throw new VisionError(503,'provider_auth','The server’s vision connection needs attention. Hemoglobin estimation still works locally.');
     if (response.status === 429) throw new VisionError(429,'provider_limit','The vision service has reached a rate or usage limit. Try again later.');
     throw new VisionError(502,'provider_error','The vision service could not complete this request. Try again later.');
   }

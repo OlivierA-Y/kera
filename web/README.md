@@ -1,6 +1,6 @@
 # Kera Camera
 
-A webcam app using the project's **actual trained three-seed MLP ensemble** for on-device hemoglobin estimation, plus optional OpenAI vision observations of nail morphology. The numeric estimate stays in the browser. Visual observations send resized photos to OpenAI only after explicit consent.
+A webcam app using the project's **actual trained three-seed MLP ensemble** for on-device hemoglobin estimation, plus optional OpenRouter vision observations of nail morphology. The numeric estimate stays in the browser. Visual observations send resized photos through OpenRouter to its selected model provider only after explicit consent.
 
 ## Run locally
 
@@ -22,11 +22,11 @@ The camera stops when you capture, stop the feed, leave the page, or replace it 
 
 After capture or upload, choose **Look at visible features**. Preview the top photo, optionally add a side view of the same finger, and check the consent box before sending. No region annotations or white reference are required for this separate flow. It describes surface pits, lifting, splitting/crumbling, nail-fold swelling, spoon-like shape and clubbing-like shape, using **visible**, **not observed**, or **unclear**. Without a side view, shape findings are always unclear.
 
-The local Node 22+ server uses the OpenAI Responses API with a strict structured-output schema. Default model: `gpt-4.1`; configurable with `OPENAI_VISION_MODEL`. To enable it, copy `web/.env.example` to `web/.env`, set `OPENAI_API_KEY`, then restart the server. No npm dependencies are needed. Keep the key out of `dist/`; `.env` is ignored by Git. Without a key, the app explains that visual analysis is unavailable and the local hemoglobin estimate still works.
+The local Node 22+ server uses the OpenRouter Chat Completions API with a strict structured-output schema. Default model: `google/gemini-2.5-flash`; configurable with `OPENROUTER_VISION_MODEL`. To enable it, copy `web/.env.example` to `web/.env`, set `OPENROUTER_API_KEY`, then restart the server. No npm dependencies are needed. Keep the key out of `dist/`; `.env` is ignored by Git. Without a key, the app explains that visual analysis is unavailable and the local hemoglobin estimate still works.
 
 This is an experimental morphology description, not disease detection or diagnosis. It does not infer anemia, nutrient deficiency, fungal disease, psoriasis, cancer, blood oxygen, or treatment. A feature not observed is not ruled out. There are no validated confidence percentages or clinical accuracy claims. Schema and prose checks reduce unwanted output but cannot establish medical correctness. A clinician must assess changes or concerns.
 
-Privacy: the browser makes resized JPEG copies up to 1600 px on the longest edge, removing original file metadata. Kera does not log or save photos or observations. The server holds them in memory during a request, sends them only to the fixed OpenAI endpoint with `store: false`, and returns structured findings. OpenAI retention policies may still apply; `store: false` is not a zero-retention guarantee. See [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data). Canceling or replacing a photo aborts the request but cannot recall photos already sent.
+Privacy: the browser makes resized JPEG copies up to 1600 px on the longest edge, removing original file metadata. Kera does not log or save photos or observations. The server holds them in memory during a request, sends them to the fixed OpenRouter endpoint, which routes them to the selected model provider, and returns structured findings. Requests require support for the schema parameters and exclude providers flagged as collecting data (`provider.require_parameters: true`, `data_collection: "deny"`). This routing preference is not a blanket zero-retention guarantee. OpenRouter and the selected provider’s policies still apply. See [OpenRouter privacy policy](https://openrouter.ai/privacy). Canceling or replacing a photo aborts the request but cannot recall photos already sent.
 
 The server binds only to localhost, validates Host/Origin, limits body size and requests, allows one analysis at a time, and times out provider calls. It is a local development server; public hosting would require authentication, per-user quotas and a protected deployment. No public deployment is included.
 
@@ -53,7 +53,7 @@ The parity fixtures use ten training patients, with no labels or patient identif
 npm --prefix web test
 ```
 
-The 15 vision unit/integration tests use a synthetic gray JPEG and an injected provider; they never contact OpenAI. They cover consent, input validation, origins, credential isolation, structured findings, refusal, errors, missing side views, unusable images, request limits and timeout handling. Browser vision tests additionally exercise consent, optional side photos, results, failure, cancellation, replacing photos during analysis and responsive layouts. They use a local mock provider, not a simulated production result.
+The 15 vision unit/integration tests use a synthetic gray JPEG and an injected provider; they never contact OpenRouter. They cover consent, input validation, origins, credential isolation, structured findings, refusal, errors, missing side views, unusable images, request limits and timeout handling. Browser vision tests additionally exercise consent, optional side photos, results, failure, cancellation, replacing photos during analysis and responsive layouts. They use a local mock provider, not a simulated production result.
 
 
 - Eight Node tests cover CPU parity, feature ordering/normalization, NumPy-style percentile interpolation, central crop geometry, input validation, overlap/reference rejection, quality warnings and schema checks.

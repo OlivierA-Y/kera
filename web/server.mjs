@@ -8,7 +8,7 @@ import { analyzePhotos, validateObservation, VisionError } from './server/vision
 
 const ROOT = fileURLToPath(new URL('./dist/', import.meta.url));
 const MAX_BODY = 5_000_000;
-const DEFAULT_MODEL = 'gpt-4.1';
+const DEFAULT_MODEL = 'google/gemini-2.5-flash';
 const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.json':'application/json', '.png':'image/png', '.svg':'image/svg+xml' };
 const LIMITATION = 'Experimental visual observations, not a diagnosis. A feature that is not observed may still be present. A clinician must assess the cause of any change.';
 function json(res, status, value) {
@@ -39,7 +39,7 @@ export function validateInput(body) {
   if (!seen.has('top')) throw new VisionError(400,'top_required','Include a top view of the nail.');
   return body.photos.map(({view,data_url})=>({view,data_url}));
 }
-export function createApp({ apiKey=process.env.OPENAI_API_KEY||'', model=process.env.OPENAI_VISION_MODEL||DEFAULT_MODEL, provider=analyzePhotos, maxRequests=10, timeoutMs=45000 }={}) {
+export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=process.env.OPENROUTER_VISION_MODEL||DEFAULT_MODEL, provider=analyzePhotos, maxRequests=10, timeoutMs=45000 }={}) {
   let active=0;let recent=[];
   const server=createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
@@ -52,7 +52,7 @@ export function createApp({ apiKey=process.env.OPENAI_API_KEY||'', model=process
       const host=req.headers.host;
       if (!host || !new Set([`localhost:${server.address().port}`,`127.0.0.1:${server.address().port}`,`[::1]:${server.address().port}`]).has(host)) throw new VisionError(403,'invalid_host','This local server accepts localhost requests only.');
       const url=new URL(req.url,`http://${host}`);
-      if (url.pathname==='/api/vision/status' && req.method==='GET') return json(res,200,{configured:Boolean(apiKey),provider:'OpenAI',model:apiKey?model:null,privacy:'Photos are sent to OpenAI only after explicit permission. Kera does not save photos or observations.'});
+      if (url.pathname==='/api/vision/status' && req.method==='GET') return json(res,200,{configured:Boolean(apiKey),provider:'OpenRouter',model:apiKey?model:null,privacy:'Photos are sent through OpenRouter to its selected model provider only after explicit permission. Kera does not save photos or observations.'});
       if (url.pathname==='/api/vision/analyze') {
         if (req.method!=='POST') throw new VisionError(405,'method_not_allowed','Use POST for visual analysis.');
         if (req.headers.origin!==`http://${host}` || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Visual analysis must start from this app.');
@@ -68,7 +68,7 @@ export function createApp({ apiKey=process.env.OPENAI_API_KEY||'', model=process
         try {
           const observation=validateObservation(await provider(photos,{apiKey,model,signal:controller.signal}),photos.some(p=>p.view==='side'));
           if (controller.signal.aborted) throw new VisionError(504,'provider_timeout','The vision request timed out or was canceled.');
-          if (!res.destroyed) json(res,200,{...observation,provider:'OpenAI',model,limitation:LIMITATION,analysis_id:randomUUID()});
+          if (!res.destroyed) json(res,200,{...observation,provider:'OpenRouter',model,limitation:LIMITATION,analysis_id:randomUUID()});
         } catch(e) {
           if(controller.signal.aborted)throw new VisionError(504,'provider_timeout','The vision request timed out or was canceled.');
           throw e;
@@ -102,5 +102,5 @@ if (process.argv[1] && import.meta.url===pathToFileURL(path.resolve(process.argv
   if (!Number.isInteger(port)||port<1||port>65535)throw new Error('PORT must be a valid port number.');
   const app=createApp();
   app.on('error',error=>{console.error(error.code==='EADDRINUSE'?`Port ${port} is already in use. Stop the old preview server or choose another PORT.`:'The local server could not start.');process.exitCode=1;});
-  app.listen(port,host,()=>console.log(`Kera: http://localhost:${port}\nVisual observations: ${process.env.OPENAI_API_KEY?'connected to OpenAI':'not configured (set OPENAI_API_KEY in web/.env)'}`));
+  app.listen(port,host,()=>console.log(`Kera: http://localhost:${port}\nVisual observations: ${process.env.OPENROUTER_API_KEY?'connected to OpenRouter':'not configured (set OPENROUTER_API_KEY in web/.env)'}`));
 }

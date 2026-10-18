@@ -23,7 +23,7 @@ export function initializeVisualAnalysis({getPhoto}){
       const response=await fetch('./api/vision/status',{cache:'no-store'});
       if(!response.ok)throw new Error('no server');
       const status=await response.json();ready=status.configured===true;
-      $('vision-connection').textContent=ready?'OpenAI connection ready. Nothing is sent until you choose “Send photos”.':'Visual analysis is not connected on this server yet. Hemoglobin estimation still works on this device.';
+      $('vision-connection').textContent=ready?'OpenRouter connection ready. Nothing is sent until you choose “Send photos”.':'Visual analysis is not connected on this server yet. Hemoglobin estimation still works on this device.';
     }catch{
       $('vision-connection').textContent='Visual analysis needs the Kera local server. The local hemoglobin estimate remains available.';
     }
@@ -96,7 +96,7 @@ export function initializeVisualAnalysis({getPhoto}){
       renderResult(body);
     }catch(e){
       if(current!==generation)return;
-      feedback(requestController.signal.aborted?'The request was canceled or timed out. Photos already sent may have reached OpenAI. No observations are shown.':e.message||'The vision service could not be reached.');
+      feedback(requestController.signal.aborted?'The request was canceled or timed out. Photos already sent may have reached OpenRouter. No observations are shown.':e.message||'The vision service could not be reached.');
     }finally{
       clearTimeout(timer);
       if(current===generation){busy=false;controller=null;consent.checked=false;topData=null;sideData=null;$('top-preview').removeAttribute('src');$('side-preview').removeAttribute('src');$('side-preview').hidden=true;$('remove-side').hidden=true;$('side-label').textContent='Add a side view';$('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('open-vision').disabled=false;updateSend();}

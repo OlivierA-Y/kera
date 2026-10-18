@@ -1,4 +1,4 @@
-// UI integration tests use an injected local provider. No image reaches OpenAI.
+// UI integration tests use an injected local provider. No image reaches OpenRouter.
 import { Browser, sleep } from '/home/olivier-aud/.agents/skills/design-taste-frontend/scripts/lib/cdp.mjs';
 import { createApp } from '../server.mjs';
 import { FINDINGS } from '../server/vision.mjs';
