@@ -1,7 +1,7 @@
 import {createCaptureTimer} from './capture-timer.js';
 import {scaleStickerBoxes} from './sticker-detector.js';
 import {PATCHES,readProfile,saveProfile,validateProfile,createProfile,sampleSticker} from './sticker-calibration.js';
-import { readCameraAdjustment, saveCameraAdjustment, adjustHemoglobin, DEMO_OUTPUT_OFFSET_G_PER_L } from './camera-adjustment.js';
+import { readCameraAdjustment, saveCameraAdjustment, adjustHemoglobin } from './camera-adjustment.js';
 import { createScanHistory } from './scan-history.js';
 import { createTorchController } from './torch.js';
 import { initializeTouchRegions } from './touch-regions.js';
@@ -487,7 +487,7 @@ $('predict-button').addEventListener('click',async()=>{
     if(version!==sessionVersion)return;
     hbResultReady=true;
     const adjusted=adjustHemoglobin(result.hemoglobin_g_per_l,adjustmentEnabled);
-    $('prediction-value').textContent=(adjusted.value+DEMO_OUTPUT_OFFSET_G_PER_L).toFixed(1);
+    $('prediction-value').textContent=adjusted.value.toFixed(1);
     $('result-caption').textContent=stickerMode==='mlh'?'MLH color-corrected average estimate':adjustmentEnabled?'Camera-adjusted average estimate':'Average estimated hemoglobin';
     $('adjustment-caption').textContent=adjustmentEnabled?`Raw model average: ${adjusted.raw.toFixed(1)} g/L.`:'';
     const failed=scans.filter(scan=>scan.state==='failed').length;
