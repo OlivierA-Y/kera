@@ -108,10 +108,18 @@ try {
 
   await mkdir('web/reports/care-integration', { recursive: true });
   for (const width of [1440, 768, 390]) {
-    await page.setViewportSize({ width, height: 1000 });
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-    assert.equal(await note.evaluate(el => el.getBoundingClientRect().right <= innerWidth), true);
-    await page.screenshot({ path: `web/reports/care-integration/results-${width}.png`, fullPage: true });
+    // Fresh pages avoid Chromium full-page compositing artifacts after viewport changes.
+    const screen = await context.newPage();
+    await screen.setViewportSize({ width, height: 1000 }); await screen.goto(base);
+    await screen.locator('#file-input').setInputFiles(fixture);
+    await screen.locator('#open-vision').click();
+    await screen.waitForFunction(() => document.getElementById('vision-connection').textContent.includes('synthetic-model'));
+    await screen.locator('#vision-consent').check(); await screen.locator('#send-vision').click();
+    await screen.locator('#care-handoff-note').waitFor();
+    assert.equal(await screen.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    assert.equal(await screen.locator('#care-handoff-note').evaluate(el => el.getBoundingClientRect().right <= innerWidth), true);
+    await screen.screenshot({ path: `web/reports/care-integration/results-${width}.png`, fullPage: true, animations: 'disabled' });
+    await screen.close();
   }
   pass('integrated review/note fit 390/768/1440px alongside existing app');
   await page.locator('#tab-hb').click();
