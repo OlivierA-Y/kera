@@ -61,3 +61,15 @@ export function associationFor(key, finding, quality) {
     ? { text: rule.text, followUp: rule.followUp, limits: rule.limits, questions: [...rule.questions], sources: rule.sources.map(id => ({ id, ...SOURCES[id] })) }
     : null;
 }
+
+// General category references are educational reading, not evidence that this image has a disease.
+export function categoryReferenceFor(key) {
+  const rule = RULES[key];
+  const text = {
+    skin_cancer: 'Some nail changes warrant assessment for melanoma, alongside other possible causes. The linked guide describes warning signs; it does not determine the cause of this photo’s changes.',
+    fungal_infection: 'Nail fungus, nail injury and nail psoriasis can resemble one another. Examination and sometimes a nail sample are needed to distinguish them.',
+    eczema: 'Hand eczema can involve dry, scaly or cracked skin. Irritation and other skin conditions can look similar; appearance alone cannot establish the cause.',
+    psoriasis: 'Nail psoriasis can involve pits, discoloration, thickening or separation from the nail bed. Other nail conditions can resemble it.',
+  }[key];
+  return rule ? { text, followUp: rule.followUp, limits: rule.limits, questions: [...rule.questions], sources: rule.sources.map(id => ({ id, ...SOURCES[id] })) } : null;
+}

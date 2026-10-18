@@ -13,6 +13,17 @@ export const EXAMPLES = Object.freeze({
     value.observations.fungal_infection = { status: 'possible_features', evidence: 'Buildup beneath the nail is visible at the free edge.', view: 'top' };
     return value;
   } },
+  clear: { label: 'No visible features', make() {
+    const value=base();value.image_quality={assessment:'adequate',reason:'Synthetic example. The photographed skin and nail surfaces are clearly visible.'};
+    for(const key of Object.keys(value.observations))value.observations[key]={status:'no_visible_features',evidence:'No specific surface changes for this check are visible in the photographed area.',view:'top'};
+    return value;
+  } },
+  overlapping: { label: 'Overlapping skin and nail patterns', make() {
+    const value=base();value.image_quality={assessment:'adequate',reason:'Synthetic example. The photographed nail surfaces and surrounding skin are visible.'};
+    value.observations.eczema={status:'possible_features',evidence:'Dry, cracked skin surrounds the cuticle on two fingers.',view:'top'};
+    value.observations.psoriasis={status:'possible_features',evidence:'Small pits and surface ridges are visible on two nail plates.',view:'top'};
+    return value;
+  } },
   unclear: { label: 'Cannot assess', make: base },
   unusable: { label: 'Unusable image', make() {
     const value = base(); value.image_quality = { assessment: 'unusable', reason: 'Synthetic example. Glare obscures the photographed area.' };

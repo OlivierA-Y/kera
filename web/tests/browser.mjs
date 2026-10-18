@@ -40,7 +40,7 @@ try{
   assert.equal(await page.eval("document.getElementById('average-caption').textContent"),'Based on 2 readings.');
   const averageRequests=requests.filter(x=>x.method==='POST'&&new URL(x.url).pathname==='/api/scans/average');assert.equal(averageRequests.length,1);
   const {readings}=JSON.parse(averageRequests[0].postData);assert.equal(readings.length,2);assert.notEqual(readings[0].id,readings[1].id);
-  assert.equal(value,Number(((readings[0].hemoglobin_g_per_l+readings[1].hemoglobin_g_per_l)/2).toFixed(1)));record('End scan now returns one average from both real frozen-MLP readings');
+  assert.equal(value,Number(((readings[0].hemoglobin_g_per_l+readings[1].hemoglobin_g_per_l)/2).toFixed(1)));record('Finish & see result returns one average from both real frozen-MLP readings');
   await sleep(450);await page.screenshot({path:'web/reports/browser/desktop-result.jpg'});
   await click(page,'#new-scan');await upload(page);await mark(page,'nail',[123,429,183,483]);await mark(page,'skin',[148,556,200,614]);await mark(page,'white',[123,429,183,483]);await click(page,'#predict-button');await wait(page,"!document.getElementById('error').hidden");
   assert.ok(await page.eval("document.getElementById('error').textContent.includes('overlapping')"));assert.equal(await page.eval("document.getElementById('result-panel').hidden"),true);record('Starting a new scan resets the session; overlapping annotations block submission');

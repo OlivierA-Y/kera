@@ -11,12 +11,39 @@ function encodePhoto(source){
   if(data.length>2500000)throw new Error('This photo is too detailed to send. Try a closer crop of the affected area.');
   return data;
 }
-export function initializeVisualAnalysis({getPhoto}){
-  let ready=false,topData=null,sideData=null,controller=null,generation=0,busy=false,photoReady=false,sideVersion=0,remoteSent=false;
+export function initializeVisualAnalysis({getPhoto,onResult=()=>{}}){
+  let ready=false,topData=null,controller=null,generation=0,busy=false,photoReady=false,remoteSent=false;
   const dialog=$('vision-dialog'),send=$('send-vision'),consent=$('vision-consent');
   const careReview=createCareReview($('vision-results'));
+  let hasReview=false;
+  function displayReview(open){
+    $('workspace').hidden=open;
+    $(open?'review-history-slot':'photo-history-slot').append($('scan-history'));
+    $('review-page').hidden=!open;
+    document.querySelector('.skip-link').href=open?'#review-page-title':'#workspace';
+    document.querySelector('.skip-link').textContent=open?'Skip to results':'Skip to camera';
+    if(open){$('review-page-title').focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});}
+  }
+  function openResults(){
+    if(!hasReview)return;
+    if(location.hash!=='#review')history.pushState(null,'','#review');
+    displayReview(true);
+  }
+  function closeResults(){
+    displayReview(false);
+    if(location.hash==='#review')history.replaceState(null,'',location.pathname+location.search);
+  }
+  $('back-to-capture').addEventListener('click',()=>{
+    if(location.hash==='#review')history.back();else closeResults();
+  });
+  $('reopen-review').addEventListener('click',openResults);
+  window.addEventListener('popstate',()=>{
+    if(location.hash==='#review'&&hasReview)displayReview(true);else closeResults();
+  });
+  // Reviews live in memory only. A reload must not suggest a recovered result.
+  if(location.hash==='#review')closeResults();
   function feedback(message){$('vision-error').textContent=message;$('vision-error').hidden=!message;}
-  function updateSend(){send.disabled=!ready||!topData||!consent.checked||busy||$('side-input').disabled;}
+  function updateSend(){send.disabled=!ready||!topData||!consent.checked||busy;}
   async function checkServer(){
     ready=false;$('vision-data-policy').hidden=true;updateSend();
     try{
@@ -32,29 +59,15 @@ export function initializeVisualAnalysis({getPhoto}){
     }
     updateSend();
   }
-  function clearResults(){ careReview.clear();$('vision-results').hidden=true;$('review-categories').hidden=false;document.querySelector('.visual-intro').hidden=false; }
+  function clearResults(){ hasReview=false;closeResults();$('reopen-review').hidden=true;careReview.clear();$('vision-results').hidden=true;$('review-categories').hidden=false;document.querySelector('.visual-intro').hidden=false; }
   function reset(hasPhoto){
-    photoReady=hasPhoto;generation++;sideVersion++;controller?.abort();controller=null;busy=false;topData=null;sideData=null;remoteSent=false;
-    consent.checked=false;send.textContent='Send photos';$('side-input').value='';$('side-preview').removeAttribute('src');$('side-preview').hidden=true;$('remove-side').hidden=true;
+    photoReady=hasPhoto;generation++;controller?.abort();controller=null;busy=false;topData=null;remoteSent=false;
+    consent.checked=false;send.textContent='Send photos';
     $('top-preview').removeAttribute('src');$('vision-preview-area').hidden=false;
-    $('side-label').textContent='Add another angle';$('side-input').disabled=false;
-    $('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('open-vision').disabled=false;$('add-angle').disabled=false;
+    $('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('open-vision').disabled=false;
     $('vision-remote-note').hidden=true;feedback('');clearResults();
-    $('open-vision').disabled=!hasPhoto;$('open-vision').textContent=hasPhoto?'Preview photos':'Take or upload a photo';clearSidePreview();if(dialog.open)dialog.close();updateSend();
+    $('open-vision').disabled=!hasPhoto;$('open-vision').textContent=hasPhoto?'Preview photos':'Take or upload a photo';if(dialog.open)dialog.close();updateSend();
   }
-  function clearSidePreview(){
-    $('additional-preview').removeAttribute('src');$('additional-photo').hidden=true;
-    $('add-angle').textContent='＋ Another angle';
-  }
-  function removeSide(){
-    generation++;controller?.abort();controller=null;busy=false;sideVersion++;sideData=null;
-    $('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('side-input').disabled=false;
-    $('open-vision').disabled=!photoReady;$('open-vision').textContent='Preview photos';$('add-angle').disabled=false;
-    $('side-preview').removeAttribute('src');$('side-preview').hidden=true;$('remove-side').hidden=true;
-    $('side-label').textContent='Add another angle';consent.checked=false;clearResults();clearSidePreview();feedback('');updateSend();
-  }
-  for(const id of ['choose-side','add-angle'])$(id).addEventListener('click',()=>$('side-input').click());
-  $('remove-angle').addEventListener('click',removeSide);
   $('open-vision').addEventListener('click',()=>{
     feedback('');clearResults();const photo=getPhoto();if(!photo)return;
     try{topData=encodePhoto(photo);}catch(e){feedback(e.message);return;}
@@ -65,38 +78,18 @@ export function initializeVisualAnalysis({getPhoto}){
   $('close-vision').addEventListener('click',()=>dialog.close());
   dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}});
   consent.addEventListener('change',updateSend);
-  $('side-input').addEventListener('change',async(event)=>{
-    const file=event.target.files[0];if(!file)return;
-    // A changed view invalidates the review immediately, including a pending result.
-    generation++;controller?.abort();controller=null;busy=false;clearResults();consent.checked=false;
-    $('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('open-vision').textContent='Preview photos';$('add-angle').disabled=false;
-    const version=++sideVersion,current=generation;
-    if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>30000000){feedback('Choose a JPEG, PNG, or WebP additional photo under 30 MB.');event.target.value='';return;}
-    $('side-input').disabled=true;consent.checked=false;$('open-vision').disabled=true;send.disabled=true;
-    try{
-      const bitmap=await createImageBitmap(file);
-      try{
-        if(version!==sideVersion||current!==generation)return;
-        if(bitmap.width*bitmap.height>24000000)throw new Error('Use an additional photo under 24 megapixels.');
-        sideData=encodePhoto(bitmap);$('additional-preview').src=sideData;$('additional-photo').hidden=false;$('add-angle').textContent='＋ Replace angle';$('side-preview').src=sideData;$('side-preview').hidden=false;$('remove-side').hidden=false;$('side-label').textContent='Replace additional photo';
-        consent.checked=false;feedback('');
-      }finally{bitmap.close();}
-    }catch(e){feedback(e.message||'The additional photo could not be read.');}
-    finally{if(version===sideVersion&&current===generation){$('side-input').disabled=false;$('open-vision').disabled=!photoReady||busy;event.target.value='';updateSend();}}
-  });
-  $('remove-side').addEventListener('click',removeSide);
   function renderResult(value){
     const container=$('vision-results');
     if(!careReview.show(value))throw new Error('The observation response is incomplete or unsupported. No findings or handoff draft are shown. Try again.');
     $('review-categories').hidden=true;document.querySelector('.visual-intro').hidden=true;$('open-vision').textContent='Review again';container.hidden=false;container.setAttribute('tabindex','-1');container.focus({preventScroll:true});
-    if(window.innerWidth<740)container.scrollIntoView({block:'start',behavior:'instant'});
+    onResult(value);hasReview=true;$('reopen-review').hidden=false;openResults();
   }
   $('vision-form').addEventListener('submit',async(event)=>{
     event.preventDefault();if(!ready||!topData||!consent.checked||busy)return;
     const current=generation;controller=new AbortController();const requestController=controller;
     busy=true;updateSend();feedback('');clearResults();dialog.close();$('review-categories').hidden=true;$('open-vision').textContent='Reviewing photos…';
-    $('vision-busy').hidden=false;$('cancel-vision').hidden=false;$('open-vision').disabled=true;$('add-angle').disabled=true;
-    const photos=[{view:'top',data_url:topData}];if(sideData)photos.push({view:'side',data_url:sideData});
+    $('vision-busy').hidden=false;$('cancel-vision').hidden=false;$('open-vision').disabled=true;
+    const photos=[{view:'top',data_url:topData}];
     remoteSent=true;$('vision-remote-note').hidden=false;
     const timer=setTimeout(()=>requestController.abort('timeout'),55000);
     try{
@@ -110,10 +103,14 @@ export function initializeVisualAnalysis({getPhoto}){
       clearResults();feedback(requestController.signal.aborted?'The request was canceled or timed out. Photos already sent may have reached OpenRouter. No observations are shown.':e.message||'The vision service could not be reached.');
     }finally{
       clearTimeout(timer);
-      if(current===generation){busy=false;controller=null;consent.checked=false;topData=null;sideData=null;$('top-preview').removeAttribute('src');$('side-preview').removeAttribute('src');$('side-preview').hidden=true;$('remove-side').hidden=true;$('side-label').textContent='Add another angle';$('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('open-vision').disabled=!photoReady;$('open-vision').textContent=$('vision-results').hidden?'Preview photos':'Review again';$('add-angle').disabled=false;clearSidePreview();updateSend();}
+      if(current===generation){busy=false;controller=null;consent.checked=false;topData=null;$('top-preview').removeAttribute('src');$('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('open-vision').disabled=!photoReady;$('open-vision').textContent=$('vision-results').hidden?'Preview photos':'Review again';updateSend();}
     }
   });
   $('cancel-vision').addEventListener('click',()=>controller?.abort('user'));
   window.addEventListener('pagehide',()=>reset(false));
-  return{reset,deactivate(){reset(photoReady);}};
+  function restoreReview(value){
+    if(!careReview.show(value))return;
+    hasReview=true;$('vision-results').hidden=false;$('reopen-review').hidden=false;$('open-vision').textContent='Review again';
+  }
+  return{reset,restoreReview,deactivate(){reset(photoReady);}};
 }
