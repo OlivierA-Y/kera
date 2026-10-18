@@ -11,7 +11,7 @@ const ROOT = fileURLToPath(new URL('./dist/', import.meta.url));
 const MAX_BODY = 5_000_000;
 const DEFAULT_MODEL = 'google/gemini-2.5-flash';
 const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.json':'application/json', '.png':'image/png', '.svg':'image/svg+xml' };
-const LIMITATION = 'Experimental visual observations, not a diagnosis. A feature that is not observed may still be present. A clinician must assess the cause of any change.';
+const LIMITATION = 'Experimental skin and nail review, not a diagnosis. Photos cannot confirm or rule out skin cancer, fungal infection, eczema or psoriasis. A clinician must assess concerning changes.';
 function json(res, status, value) {
   res.writeHead(status, { 'Content-Type':'application/json', 'Cache-Control':'no-store' });res.end(JSON.stringify(value));
 }

@@ -3,25 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f5f5f5">
-  <meta name="description" content="Capture a nail photo and run Kera’s experimental hemoglobin neural network privately on your device.">
+  <meta name="theme-color" content="#f5f5f2">
+  <meta name="description" content="Capture a photo for on-device hemoglobin estimation or an optional, consent-based skin and nail review.">
   <title>Kera — A closer look</title>
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
   <link rel="stylesheet" href="./style.css">
   <script type="module" src="./app.js"></script>
 </head>
 <body>
+  <a class="skip-link" href="#workspace">Skip to camera</a>
   <header class="header">
     <a href="./" class="brand" aria-label="Kera home"><img src="./assets/kera-logo.png" width="140" height="43" alt="Kera"></a>
-    <nav aria-label="Main navigation"><a href="#workspace" aria-current="page">Capture</a><button class="text-button" id="about-button">About the model <span aria-hidden="true">↗</span></button></nav>
-    <span class="privacy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Local Hb. Optional vision.</span>
+    <nav class="mode-tabs" role="tablist" aria-label="Analysis mode">
+      <button id="tab-hb" role="tab" aria-selected="false" aria-controls="hb-workflow" tabindex="-1">Hemoglobin</button>
+      <button id="tab-skin" role="tab" aria-selected="true" aria-controls="visual-analysis">Skin &amp; nail</button>
+    </nav>
+    <button id="guide-button" class="guide-button" aria-haspopup="dialog" aria-controls="region-help-dialog"><span>Guide</span><span class="guide-mark" aria-hidden="true">?</span></button>
   </header>
-
   <main id="workspace">
-    <section class="intro" aria-labelledby="page-title"><h1 id="page-title">A closer look.</h1><p>A nail photo. An experimental<br class="desktop-break"> hemoglobin estimate.</p></section>
+    <div class="workspace-context"><span id="workflow-label">Skin &amp; nail</span><span id="workflow-step">01 / Capture</span></div>
     <div class="workspace">
       <section class="camera-panel" aria-labelledby="view-heading">
-        <div class="view-heading"><h2 id="view-heading">Your scan</h2><span id="camera-status" class="camera-status">Camera off</span></div>
+        <div class="view-heading"><h2 id="view-heading">Your photo</h2><span id="camera-status" class="camera-status">Camera off</span></div>
         <div id="viewfinder" class="viewfinder">
           <video id="video" autoplay muted playsinline aria-label="Live webcam feed" hidden></video>
           <canvas id="photo" aria-label="Captured photo. Select a region using the region controls and draw a rectangle, or enter coordinates below." hidden></canvas>
@@ -29,7 +32,7 @@
           <div id="empty-state" class="empty-state">
             <svg class="nail-mark" viewBox="0 0 92 100" fill="currentColor" aria-hidden="true"><path d="M10 94V40C10 17 25 5 46 5s36 12 36 35v54c0 3-2 4-5 2-23-15-39-15-62 0-3 2-5 1-5-2Z"/></svg>
             <h3>Your camera,<br>when you’re ready.</h3>
-            <p>Keep your middle finger and<br>a white reference in view.</p>
+            <p id="capture-instruction">Bring the affected skin or nail<br>into clear, even light.</p>
             <button id="start-camera" class="button light-button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m9 4-2 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2-3Z"/><circle cx="12" cy="13" r="4"/></svg>Turn on camera</button>
           </div>
           <div id="session-complete-state" class="empty-state" hidden><h3>Scan complete.</h3><p>Your average is ready.<br>You can start a new scan when you’re ready.</p></div>
@@ -39,16 +42,18 @@
         <div class="camera-toolbar">
           <div class="camera-tools"><button id="upload-button" class="text-button">Upload a photo <span aria-hidden="true">↗</span></button><input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" hidden><button id="switch-camera" class="icon-button" aria-label="Switch camera" title="Switch camera" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 8a8 8 0 0 0-14-3L3 8m0-5v5h5M4 16a8 8 0 0 0 14 3l3-3m0 5v-5h-5"/></svg></button><button id="stop-camera" class="text-button" hidden>Stop camera</button></div>
           <button id="capture-button" class="button dark-button" disabled><span class="shutter-icon" aria-hidden="true"></span>Take photo</button>
-          <button id="retake-button" class="button dark-button" hidden>Retake photo <span aria-hidden="true">↻</span></button>
+          <button id="retake-button" class="text-button" hidden><span aria-hidden="true">↻</span> Retake</button><button id="add-angle" class="text-button" hidden><span aria-hidden="true">＋</span> Another angle</button><input id="side-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>
         </div>
-        <p id="notice" class="notice" role="status" aria-live="polite">Photos stay in your browser. Optional visual analysis sends photos only with your permission.</p>
+        <div id="additional-photo" class="additional-photo" hidden><img id="additional-preview" alt="Additional angle selected for review"><span>Another angle</span><button id="remove-angle" class="text-button" aria-label="Remove additional angle">Remove</button></div>
+        <p id="notice" class="notice" role="status" aria-live="polite">Hemoglobin estimation stays on your device. Optional visual analysis sends photos only with your permission.</p>
         <div id="error" class="error" role="alert" hidden></div>
       </section>
 
       <aside class="scan-details">
-        <section id="scan-session" class="scan-session" aria-label="Scan progress" hidden>
-          <p id="session-count" class="session-count"></p><p id="session-progress" role="status" aria-live="polite"></p><ul id="session-failures" role="alert" hidden></ul>
-        </section>
+        <section id="hb-workflow" role="tabpanel" aria-labelledby="tab-hb" hidden>
+          <section id="scan-session" class="scan-session" aria-label="Scan progress" hidden>
+            <p id="session-count" class="session-count"></p><p id="session-progress" role="status" aria-live="polite"></p><ul id="session-failures" role="alert" hidden></ul>
+          </section>
         <div id="prepare-panel">
           <h2>A little preparation.<br>A better photo.</h2>
           <div class="guidance"><p><strong>Find even light.</strong><br>Use diffused, neutral light. Avoid glare and deep shadows.</p><p><strong>Make room for white.</strong><br>Place plain white paper beside your finger, in the same light.</p><p><strong>Show your middle nail.</strong><br>Keep the whole nail and nearby skin visible, without nail polish.</p></div>
@@ -74,22 +79,27 @@
           <h2>Your average estimate.</h2><div class="prediction"><span id="prediction-value">—</span><span class="prediction-unit">g/L</span></div><p class="result-caption">Average estimated hemoglobin</p><p id="average-caption" class="average-caption"></p><p class="result-context">An experimental average of your readings. This does not diagnose or rule out anemia. Averaging has not been clinically validated.</p><div id="quality-warnings" class="quality-warnings" hidden></div><p class="result-limitation">Low hemoglobin can be overestimated. Confirm any health concern with a clinician and a blood test.</p><button class="button dark-button" id="new-scan">Start a new scan</button>
         </div>
         <p class="model-note" id="model-note">Loading the trained neural network…</p>
-      </aside>
-    </div>
-    <section id="visual-analysis" class="visual-section" aria-labelledby="visual-title" hidden>
-      <div class="visual-intro"><div><h2 id="visual-title">A look at the details.</h2><p>Optional visual nail observations, separate from your hemoglobin estimate.</p></div><button id="open-vision" class="button dark-button">Look at visible features ↗</button></div>
-      <p class="visual-description">Look for surface pits, lifting, cracks and swelling. An optional side photo helps assess nail shape. No regions need to be marked.</p>
+        </section>
+    <section id="visual-analysis" class="visual-section" role="tabpanel" aria-labelledby="tab-skin">
+      <div class="visual-intro"><h1 id="visual-title">Skin &amp; nail review</h1><p id="skin-instruction">Capture a close-up of the area you want to review.</p></div>
+      <ul class="review-categories" id="review-categories"><li>Skin cancer warning signs</li><li>Fungal infection-like changes</li><li>Eczema-like changes</li><li>Psoriasis-like changes</li></ul>
+
       <p id="vision-remote-note" class="small-note" hidden>You chose remote visual analysis for this photo. Kera does not save the photos or observations. OpenRouter and the selected model provider’s data policies apply.</p>
       <div id="vision-busy" class="vision-busy" role="status" hidden><span class="vision-loader" aria-hidden="true"></span>Looking at the visible features… <button id="cancel-vision" class="text-button" hidden>Cancel request</button></div>
       <div id="vision-error" class="error" role="alert" hidden></div>
       <div id="vision-results" class="vision-results" aria-live="polite" hidden></div>
+      <div class="review-action"><p class="review-limitation">Experimental. Cannot diagnose or rule out disease.</p><button id="open-vision" class="button dark-button" disabled>Take or upload a photo</button><p class="permission-note">Nothing is sent without your permission.</p></div>
     </section>
-    <footer class="footer"><p>Research in progress.<br>Not a diagnostic device.</p><p>A different camera or lighting can change the estimate.<br>Webcam use has not been clinically validated.</p><button class="text-button" id="footer-about">Read the model notes ↗</button></footer>
+      </aside>
+    </div>
+    <footer class="footer"><p>Kera — research in progress.</p><div><button class="text-button" id="about-button">About the model</button><button class="text-button" id="footer-about">Research notes ↗</button></div></footer>
   </main>
   <dialog id="region-help-dialog" aria-labelledby="region-help-title">
     <div class="region-help-shell">
       <div class="region-help-header"><h2 id="region-help-title" tabindex="-1">Photo and region guide</h2><button class="region-help-close" type="button" data-close-region-help aria-label="Close photo and region guide">×</button></div>
       <div class="region-help-body">
+        <section id="guide-skin"><h3>Take a clear skin or nail photo</h3><ol><li>Use even light. Keep the affected area in focus and fill the frame.</li><li>Take or upload your photo. You can add another angle of the same area.</li><li>Tap <strong>Continue</strong>, preview the photos and read the data-sharing notice. Photos are sent only after you check the consent box and tap <strong>Send photos</strong>.</li></ol><p>This experimental review cannot diagnose or rule out disease. Have concerning skin or nail changes assessed by a clinician.</p></section>
+        <section id="guide-hb">
         <p>Use a clean, dry hand without nail polish. Ask a helper if needed.</p>
         <fieldset class="region-help-options"><legend>Choose your setup</legend><div class="region-help-choices">
           <label><input type="radio" name="region-help-setup" value="dock" checked>With Kera Dock</label>
@@ -121,19 +131,20 @@
           </ol>
           <p>Keep the three boxes separate. Choose <strong>Continue scanning</strong> to add this photo and take another, or <strong>End scan now</strong> to see one average result.</p>
         </section>
+        </section>
       </div>
-      <div class="region-help-footer"><button class="button dark-button" type="button" data-close-region-help>Back to marking</button></div>
+      <div class="region-help-footer"><button class="button dark-button" type="button" data-close-region-help>Back to photo</button></div>
     </div>
   </dialog>
   <dialog id="model-dialog" aria-labelledby="dialog-title"><div class="dialog-header"><h2 id="dialog-title">A note on the model.</h2><button class="icon-button close-dialog" aria-label="Close model notes">×</button></div><p>Kera estimates hemoglobin from 42 color measurements of a middle fingernail and nearby skin, normalized to a white reference in the same photo.</p><p>This app runs the trained three-network ensemble entirely on your device: 42 inputs, 16 and 8 hidden neurons, and one output. It uses the frozen PyTorch weights exported from this project. Photos stay in your browser. At the end of a scan session, numeric readings go to your local Kera server for averaging. Averaging has not been clinically validated. If you choose the separate visual-observations feature, Kera sends the photos you preview to OpenRouter only after your permission. Kera does not save those photos or observations. OpenRouter and the selected model provider’s data policies apply.</p><div class="model-stat"><strong>15.96 g/L</strong><span>Mean absolute error on the study’s 50 held-out patients. This is an aggregate study result, not a margin of error for your reading.</span></div><p>The study used a controlled Logitech camera and lighting setup. Ordinary webcams and Kera Dock have not been independently validated. Low hemoglobin was often overestimated. Nail polish, skin differences, white balance, and glare can further affect results.</p><p>The ensemble was frozen before the held-out evaluation. The project’s cross-validation-selected deployment baseline remains Elastic Net; this app uses the neural network as requested.</p><p><a href="https://www.nature.com/articles/s41597-024-03895-9" target="_blank" rel="noopener noreferrer">Read the original study ↗</a></p><button class="button dark-button close-dialog">Back to camera</button></dialog>
   <dialog id="vision-dialog" aria-labelledby="vision-dialog-title">
     <div class="dialog-header"><h2 id="vision-dialog-title">A second look, with permission.</h2><button id="close-vision" class="icon-button" aria-label="Close visual analysis">×</button></div>
-    <p>Send these photos through OpenRouter to its selected model provider to describe visible nail features. This experimental feature cannot diagnose a condition or confirm that a nail is healthy.</p>
-    <div id="vision-preview-area" class="vision-previews"><figure><img id="top-preview" alt="Top-view photo that will be sent for analysis"><figcaption>Your captured photo</figcaption></figure><figure><img id="side-preview" alt="Optional side-view photo that will also be sent" hidden><figcaption>Side view of the same finger, optional</figcaption><label class="text-button side-upload"><span id="side-label">Add a side view</span><input id="side-input" type="file" accept="image/jpeg,image/png,image/webp"></label><button id="remove-side" class="text-button" type="button" hidden>Remove side view</button></figure></div>
-    <p class="small-note">Keep the whole nail and fingertip visible. Include only the finger, without faces or identifying details. Shape observations may stay unclear without a side view.</p>
+    <p>Send these photos through OpenRouter to its selected model provider to review skin and nail changes relevant to skin cancer, fungal infection, eczema and psoriasis. This experimental review cannot diagnose or rule out any of these conditions.</p>
+    <div id="vision-preview-area" class="vision-previews"><figure><img id="top-preview" alt="Main photo that will be sent for review"><figcaption>Affected skin or nail</figcaption></figure><figure><img id="side-preview" alt="Optional additional photo that will also be sent" hidden><figcaption>Another angle of the same area, optional</figcaption><button id="choose-side" class="text-button" type="button"><span id="side-label">Add another angle</span></button><button id="remove-side" class="text-button" type="button" hidden>Remove additional photo</button></figure></div>
+    <p class="small-note">Keep the affected area in focus and visible. Include only the skin or nail being reviewed, without faces or identifying details. An additional angle is optional.</p>
     <p id="vision-connection" class="small-note" role="status">Checking the vision connection…</p>
     <p id="vision-data-policy" class="small-note" hidden>Provider data collection is enabled on this server. Requests may be logged and used to improve provider services. Send only non-confidential photos without identifying details.</p>
-    <form id="vision-form"><label class="vision-consent"><input id="vision-consent" type="checkbox" required><span>I agree to send these photos to OpenRouter and its selected model provider for visual nail observations.</span></label><p class="small-note">Kera sends resized JPEG copies without original photo metadata. It does not save the photos or observations. <a href="https://openrouter.ai/privacy" target="_blank" rel="noopener noreferrer">OpenRouter’s data policies</a> apply. The selected model provider’s policies also apply. Retention may apply.</p><button id="send-vision" class="button dark-button" type="submit" disabled>Send photos</button></form>
+    <form id="vision-form"><label class="vision-consent"><input id="vision-consent" type="checkbox" required><span>I agree to send these photos to OpenRouter and its selected model provider for an experimental skin and nail review.</span></label><p class="small-note">Kera sends resized JPEG copies without original photo metadata. It does not save the photos or observations. <a href="https://openrouter.ai/privacy" target="_blank" rel="noopener noreferrer">OpenRouter’s data policies</a> apply. The selected model provider’s policies also apply. Retention may apply.</p><button id="send-vision" class="button dark-button" type="submit" disabled>Send photos</button></form>
   </dialog>
   <noscript><p class="noscript">JavaScript is needed for the live camera and on-device neural network. Enable JavaScript to use Kera.</p></noscript>
 </body>
