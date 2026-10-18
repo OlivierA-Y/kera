@@ -105,7 +105,9 @@ export function initializeVisualAnalysis({getPhoto,onResult=()=>{},onAdditionalP
       try{
         if(version!==sideVersion||current!==generation)return;
         if(bitmap.width*bitmap.height>24000000)throw new Error('Use an additional photo under 24 megapixels.');
-        sideData=encodePhoto(bitmap);sideHistoryId=onAdditionalPhoto(bitmap);$('additional-preview').src=sideData;$('additional-photo').hidden=false;$('add-angle').textContent='＋ Replace angle';$('side-preview').src=sideData;$('side-preview').hidden=false;$('remove-side').hidden=false;$('side-label').textContent='Replace additional photo';
+        const key=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer())),n=>n.toString(16).padStart(2,'0')).join('');
+        if(version!==sideVersion||current!==generation)return;
+        sideData=encodePhoto(bitmap);sideHistoryId=onAdditionalPhoto(bitmap,key);$('additional-preview').src=sideData;$('additional-photo').hidden=false;$('add-angle').textContent='＋ Replace angle';$('side-preview').src=sideData;$('side-preview').hidden=false;$('remove-side').hidden=false;$('side-label').textContent='Replace additional photo';
         consent.checked=false;feedback('');
       }finally{bitmap.close();}
     }catch(e){feedback(e.message||'The additional photo could not be read.');}

@@ -124,7 +124,7 @@ Only the current open session is retained. Start a new scan, reload or leave the
 
 The box editor action now says Edit region boxes and explains that the larger view supports drawing, moving and resizing the three measurement regions. The dialog names the active box, and movement/resize tools are explicitly labelled.
 
-Shared photo switcher: the session strip is now next to the camera in both modes and also appears on the dedicated review page. Main Skin & nail captures and additional angles are retained alongside added Hb scans. Previous/Next photo buttons switch within the read-only viewer, which also shows a completed visual review when available. An additional angle shares the joint review that used it; no new upload or inference happens when browsing. Changing modes no longer hides the gallery, and an Hb session reset removes only Hb history. Reloading clears all session data.
+Shared photo collection: both modes and the dedicated review page use the same session originals and photo IDs. Switching tabs never creates another photo. Re-uploading an identical file selects its existing photo, including files first added as an additional angle. Hb boxes and readings belong to that photo; Skin & nail hides the box overlays. Selecting a thumbnail loads the original directly for editing. Previous/Next switches through the shared collection. Delete selected photo removes it from both modes, removes its Hb reading, and invalidates any average or joint AI review that depended on it. A new Hb session resets readings while retaining photos and their boxes. Reloading clears all session data.
 
 ## Direct photo selection and editing
 

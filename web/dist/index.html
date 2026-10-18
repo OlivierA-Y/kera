@@ -32,8 +32,9 @@
         <div id="photo-history-slot">
         <section id="scan-history" class="scan-history" aria-labelledby="scan-history-heading" hidden>
           <h3 id="scan-history-heading">Your session photos</h3>
-          <p>Select a photo to load it here. In Hemoglobin, its region boxes can be edited; in Skin & nail, the photo has no box overlays.</p>
+          <p>Both tabs share these photos. Select a photo to load it here. In Hemoglobin, its region boxes can be edited; in Skin & nail, the photo has no box overlays.</p>
           <nav class="history-navigation" aria-label="Switch saved photo"><button id="previous-saved-photo" class="button secondary-button" type="button">← Previous photo</button><span id="saved-photo-position" aria-live="polite"></span><button id="next-saved-photo" class="button secondary-button" type="button">Next photo →</button></nav>
+          <button id="delete-session-photo" class="text-button" type="button" disabled>Delete selected photo</button>
           <ul id="scan-history-list" class="scan-history-list"></ul>
           <p class="small-note">Session only. Reloading clears these previews.</p>
         </section>

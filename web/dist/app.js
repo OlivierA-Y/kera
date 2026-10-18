@@ -13,32 +13,43 @@ const labels={nail:'Middle nail',skin:'Nearby skin',white:'White reference'};
 const prompts={nail:'Draw around the whole middle fingernail',skin:'Draw on skin between the middle finger’s two joints',white:'Draw around the plain white reference'};
 let model=null, stream=null, cameraRequest=0, facing='environment', mode='empty', active='nail', boxes={}, drag=null, snapshot=null, lastSource='camera';
 let loadVersion=0, analysis='skin',hbResultReady=false;
-let currentSkinPhotoId=null,skinPhotoNumber=0,currentHbPhotoId=null,hbPhotoNumber=0;
-function recordSkinPhoto(source){
-  const scan={id:crypto.randomUUID(),number:++skinPhotoNumber,type:'skin',state:'captured',review:null};
-  scanHistory.record(scan,source,{});return scan.id;
+let currentPhotoId=null,photoNumber=0;
+function recordPhoto(source,key=null){
+  const existing=scanHistory.findByKey(key);if(existing)return existing.scan.id;
+  const scan={id:crypto.randomUUID(),number:++photoNumber,state:'draft',result:null,message:'',review:null};
+  scanHistory.record(scan,source,{},key);return scan.id;
 }
 const MAX_SCANS=100;
 const MAX_PENDING_SCANS=3,MAX_PENDING_BYTES=128*1024*1024;
 let scans=[],processor=createScanProcessor(),sessionVersion=0,currentScanId=null,finalizing=false,actionBusy=false,uploadBusy=false,averageController=null;
-const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null,onResult:(value,additionalId)=>{if(currentSkinPhotoId)scanHistory.attachReview(currentSkinPhotoId,value);if(additionalId)scanHistory.attachReview(additionalId,value);},onAdditionalPhoto:source=>recordSkinPhoto(source)});
+const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null,onResult:(value,additionalId)=>{const ids=[currentPhotoId,additionalId].filter(Boolean);for(const id of ids)scanHistory.attachReview(id,value,ids);},onAdditionalPhoto:(source,key)=>{const id=recordPhoto(source,key);scanHistory.selectCurrent(currentPhotoId);return id;}});
 const touchEditor=initializeTouchRegions({getState:()=>({source:photo,boxes,active,editable:analysis==='hb'&&mode==='photo'&&Boolean(snapshot)&&!currentScanId&&!finalizing&&!actionBusy&&!uploadBusy}),onSave:(kind,box)=>{selectRegion(kind);saveRegion(box);}});
-const scanHistory=createScanHistory({root:$('scan-history'),list:$('scan-history-list'),previous:$('previous-saved-photo'),next:$('next-saved-photo'),position:$('saved-photo-position'),onSelect:restoreHistoryPhoto,onError:error});
-function recordHbPhoto(){
-  const scan={id:crypto.randomUUID(),number:++hbPhotoNumber,type:'hb',state:'draft',result:null,message:''};
-  scanHistory.record(scan,photo,boxes);currentHbPhotoId=scan.id;
-}
+const scanHistory=createScanHistory({root:$('scan-history'),list:$('scan-history-list'),previous:$('previous-saved-photo'),next:$('next-saved-photo'),position:$('saved-photo-position'),deleteButton:$('delete-session-photo'),onDelete:deleteHistoryPhoto,onSelect:restoreHistoryPhoto,onError:error});
 function restoreHistoryPhoto(entry,image){
   if(finalizing||actionBusy||uploadBusy)return;
   cameraRequest++;loadVersion++;stopTracks();touchEditor.close();
   photo.width=image.width;photo.height=image.height;context.drawImage(image,0,0);
   snapshot=context.getImageData(0,0,photo.width,photo.height);drag=null;lastSource='upload';currentScanId=null;
-  boxes=analysis==='hb'?structuredClone(entry.boxes):{};
-  if(analysis==='hb'){currentHbPhotoId=entry.scan.id;currentSkinPhotoId=null;hbResultReady=false;}
-  else{currentSkinPhotoId=entry.scan.id;currentHbPhotoId=null;}
+  boxes=structuredClone(entry.boxes);currentPhotoId=entry.scan.id;
+  if(analysis==='hb')hbResultReady=false;
   visual.reset(true);setMode('photo');selectRegion('nail');updateRegions();
   if(analysis==='skin'&&entry.scan.review)visual.restoreReview(entry.scan.review);
   error('');photoNotice(analysis==='hb'?'Saved photo selected. Edit its boxes; finishing replaces this reading rather than adding a duplicate.':'Saved photo selected. Skin & nail shows the original photo without region boxes.');
+}
+
+async function deleteHistoryPhoto(id,remaining){
+  scans=scans.filter(scan=>scan.id!==id);hbResultReady=false;
+  visual.reset(Boolean(snapshot));
+  $('prediction-value').textContent='-';$('average-caption').textContent='';
+  if(currentPhotoId===id){
+    cameraRequest++;loadVersion++;stopTracks();currentPhotoId=null;currentScanId=null;snapshot=null;boxes={};drag=null;
+    visual.reset(false);$('box-layer').replaceChildren();context.clearRect(0,0,photo.width,photo.height);setMode('empty');updateRegions();
+    const next=remaining.find(entry=>entry.ready&&entry.scan.state!=='pending');if(next)await scanHistory.selectId(next.scan.id);
+  }else{
+    if(mode==='result')setMode(snapshot?'photo':'empty');
+    const review=scanHistory.get(currentPhotoId)?.scan.review;if(analysis==='skin'&&review)visual.restoreReview(review);
+  }
+  renderSession();photoNotice('Photo deleted from both tabs, including its hemoglobin reading. Finish again to update the session result.');
 }
 
 const torch=createTorchController({onChange:renderTorch});
@@ -78,7 +89,7 @@ function setMode(next){
 }
 function renderAnalysis(){
   const skin=analysis==='skin',hasPhoto=Boolean(snapshot);
-  document.body.dataset.analysis=analysis;scanHistory.setMode(analysis);scanHistory.selectCurrent(skin?currentSkinPhotoId:currentHbPhotoId);
+  document.body.dataset.analysis=analysis;scanHistory.setMode(analysis);scanHistory.selectCurrent(currentPhotoId);
   show('hb-workflow',!skin);show('visual-analysis',skin);
   show('box-layer',!skin);show('drawing-prompt',!skin&&mode==='photo');
   show('add-angle',skin&&hasPhoto);
@@ -98,11 +109,12 @@ function selectAnalysis(next){
   if(next===analysis||finalizing||actionBusy||uploadBusy)return;
   visual.deactivate();
   touchEditor.close();analysis=next;drag=null;
-  if(next==='skin'&&snapshot&&!currentSkinPhotoId)currentSkinPhotoId=recordSkinPhoto(photo);
-  if(next==='hb'&&snapshot&&!currentHbPhotoId)recordHbPhoto();
+  if(snapshot&&currentPhotoId)boxes=structuredClone(scanHistory.get(currentPhotoId)?.boxes||{});
+  updateRegions();
   if(next==='hb'&&hbResultReady){cameraRequest++;stopTracks();setMode('result');}
   else if(next==='skin'&&mode==='result')setMode(snapshot?'photo':'empty');
   else{renderAnalysis();renderSession();}
+  const review=scanHistory.get(currentPhotoId)?.scan.review;if(next==='skin'&&review)visual.restoreReview(review);
   notice(snapshot?(next==='skin'?'Add another angle if useful, then continue to preview and consent.':'Hemoglobin requires the middle nail, nearby skin and white reference in the same photo.'):(next==='skin'?'Take or upload a close-up. Nothing is sent without your permission.':'Capture your middle nail, nearby skin and a white reference. Estimation stays on this device.'));
 }
 for(const [id,value] of [['tab-hb','hb'],['tab-skin','skin']]){
@@ -135,14 +147,15 @@ async function startCamera(){
     if(request===cameraRequest){$('start-camera').disabled=false;$('start-camera').lastChild.textContent='Turn on camera';}
   }
 }
-function loadSnapshot(source,width,height,origin){
+function loadSnapshot(source,width,height,origin,key=null){
   if(finalizing||(analysis==='hb'&&mode==='result'))return;
   if(!width||!height)throw new Error('This photo could not be read. Try a JPEG or PNG image.');
   if(width*height>24000000)throw new Error('This photo is too large. Use a photo under 24 megapixels.');
   photo.width=width;photo.height=height;context.drawImage(source,0,0,width,height);
   snapshot=context.getImageData(0,0,width,height);cameraRequest++;stopTracks();
-  boxes={};currentScanId=null;currentSkinPhotoId=null;currentHbPhotoId=null;lastSource=origin;visual.reset(true);setMode('photo');selectRegion('nail');updateRegions();error('');
-  if(analysis==='skin')currentSkinPhotoId=recordSkinPhoto(photo);else recordHbPhoto();
+  boxes={};currentScanId=null;currentPhotoId=null;lastSource=origin;visual.reset(true);setMode('photo');selectRegion('nail');updateRegions();error('');
+  currentPhotoId=recordPhoto(photo,key);if(scanHistory.get(currentPhotoId).scan.state==='pending')currentScanId=currentPhotoId;boxes=structuredClone(scanHistory.get(currentPhotoId).boxes);updateRegions();renderAnalysis();
+  if(analysis==='skin'&&scanHistory.get(currentPhotoId).scan.review)visual.restoreReview(scanHistory.get(currentPhotoId).scan.review);
   photoNotice(analysis==='skin'?'Photo captured. Add another angle if useful, then continue.':'Photo captured. Mark the three regions to add this hemoglobin reading.');
 }
 $('start-camera').addEventListener('click',startCamera);
@@ -165,13 +178,16 @@ $('file-input').addEventListener('change',async event=>{
   uploadBusy=true;renderSession();
   try{
     const bitmap=await createImageBitmap(file);
-    try{if(version===loadVersion)loadSnapshot(bitmap,bitmap.width,bitmap.height,'upload');}finally{bitmap.close();}
+    try{
+      const key=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer())),n=>n.toString(16).padStart(2,'0')).join('');
+      if(version===loadVersion)loadSnapshot(bitmap,bitmap.width,bitmap.height,'upload',key);
+    }finally{bitmap.close();}
   }catch(e){error(e.message||'This image could not be opened. Try another JPEG or PNG.');}
   finally{if(version===loadVersion){uploadBusy=false;renderSession();event.target.value='';}}
 });
 async function retake(){
   if(finalizing)return;
-  loadVersion++;uploadBusy=false;currentScanId=null;currentSkinPhotoId=null;currentHbPhotoId=null;
+  loadVersion++;uploadBusy=false;currentScanId=null;currentPhotoId=null;
   error('');snapshot=null;boxes={};drag=null;visual.reset(false);$('box-layer').replaceChildren();context.clearRect(0,0,photo.width,photo.height);setMode('empty');
   updateRegions();
   if(analysis==='hb'&&activeScanCount()>=MAX_SCANS){notice('This session has reached 100 photos. Choose Finish & see result.');return;}
@@ -182,7 +198,7 @@ async function retake(){
 }
 $('retake-button').addEventListener('click',retake);
 $('new-scan').addEventListener('click',async()=>{
-  scanHistory.clearType('hb');currentHbPhotoId=null;hbPhotoNumber=0;hbResultReady=false;sessionVersion++;averageController?.abort();averageController=null;processor.close();processor=createScanProcessor();scans=[];currentScanId=null;
+  scanHistory.resetReadings();currentPhotoId=null;hbResultReady=false;sessionVersion++;averageController?.abort();averageController=null;processor.close();processor=createScanProcessor();scans=[];currentScanId=null;
   $('prediction-value').textContent='—';$('average-caption').textContent='';$('quality-warnings').replaceChildren();show('quality-warnings',false);
   setMode('empty');await retake();
 });
@@ -227,8 +243,8 @@ function saveRegion(box){
   if(finalizing||currentScanId)throw new Error('This photo has already been added. Choose Add another photo to continue, or Finish & see result.');
   validateBox(box,photo.width,photo.height);
   if(box[3]-box[1]<3||box[2]-box[0]<3)throw new Error('Draw a slightly larger box, at least 3 pixels wide and high.');
-  boxes[active]=box;scanHistory.saveBoxes(currentHbPhotoId,boxes);
-  const saved=scans.find(scan=>scan.id===currentHbPhotoId);if(saved){saved.state='editing';saved.result=null;hbResultReady=false;}
+  boxes[active]=box;scanHistory.saveBoxes(currentPhotoId,boxes);
+  const saved=scans.find(scan=>scan.id===currentPhotoId);if(saved){saved.state='editing';saved.result=null;hbResultReady=false;}
   error('');updateRegions();
   const next=kinds.find(kind=>!boxes[kind]);selectRegion(next||active);
 }
@@ -299,14 +315,14 @@ function renderSession(){
 function addCurrentScan(){
   if(currentScanId)return;
   if(!currentReady())throw new Error('Mark all three regions before adding this photo.');
-  if(activeScanCount()>=MAX_SCANS&&!scans.some(scan=>scan.id===currentHbPhotoId))throw new Error('This session has reached 100 photos. Choose Finish & see result.');
+  if(activeScanCount()>=MAX_SCANS&&!scans.some(scan=>scan.id===currentPhotoId))throw new Error('This session has reached 100 photos. Choose Finish & see result.');
   if(!hasWorkerCapacity())throw new Error('Please wait for a photo to finish processing, then try again.');
   for(let a=0;a<kinds.length;a++)for(let b=a+1;b<kinds.length;b++){
     const x=boxes[kinds[a]],y=boxes[kinds[b]];
     if(Math.max(x[0],y[0])<Math.min(x[2],y[2])&&Math.max(x[1],y[1])<Math.min(x[3],y[3]))throw new Error('Keep all three region boxes separate. Adjust overlapping boxes first.');
   }
   const version=sessionVersion;
-  const scan=scanHistory.get(currentHbPhotoId)?.scan;
+  const scan=scanHistory.get(currentPhotoId)?.scan;
   if(!scan)throw new Error('Select or capture a photo before adding a reading.');
   Object.assign(scan,{state:'pending',bytes:snapshot.data.byteLength,result:null,message:''});
   currentScanId=scan.id;if(!scans.includes(scan))scans.push(scan);
@@ -337,7 +353,7 @@ $('predict-button').addEventListener('click',async()=>{
   const version=sessionVersion;finalizing=true;loadVersion++;cameraRequest++;stopTracks();
   if(mode==='live')setMode('empty');renderSession();
   try{
-    if(currentReady()&&(activeScanCount()<MAX_SCANS||scans.some(scan=>scan.id===currentHbPhotoId))){
+    if(currentReady()&&(activeScanCount()<MAX_SCANS||scans.some(scan=>scan.id===currentPhotoId))){
       while(!hasWorkerCapacity()){
         await Promise.race(scans.filter(scan=>scan.state==='pending').map(scan=>scan.promise));
         if(version!==sessionVersion)return;

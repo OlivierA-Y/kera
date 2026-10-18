@@ -1,10 +1,10 @@
 /** In-memory, lossless originals for editing; small JPEGs are thumbnails only. */
-export function createScanHistory({root,list,previous,next,position,onSelect,onError}) {
+export function createScanHistory({root,list,previous,next,position,deleteButton,onDelete,onSelect,onError}) {
   const entries=new Map(),doc=root.ownerDocument;
   let mode='skin',selected=null,busy=false,generation=0,request=0,bytes=0;
   const MAX_BYTES=192*1024*1024;
-  const visible=()=>[...entries.values()].filter(e=>(e.scan.type||'hb')===mode);
-  const name=e=>e.scan.type==='skin'?`Skin & nail photo ${e.scan.number}`:`Hb photo ${e.scan.number}`;
+  const visible=()=>[...entries.values()];
+  const name=e=>`Photo ${e.scan.number}`;
   async function select(entry){
     if(busy||entry.scan.state==='pending')return;
     const version=++request,current=generation;
@@ -24,23 +24,24 @@ export function createScanHistory({root,list,previous,next,position,onSelect,onE
   function update(){
     const items=visible(),i=items.findIndex(e=>e.scan.id===selected);
     root.hidden=!items.length;
+    deleteButton.disabled=busy||!selected||entries.get(selected)?.scan.state==='pending';
     previous.disabled=busy||i<=0;next.disabled=busy||i<0||i>=items.length-1;
     position.textContent=i>=0?`${i+1} of ${items.length}`:`${items.length} photos`;
     for(const entry of entries.values()){
-      entry.item.hidden=(entry.scan.type||'hb')!==mode;
+      entry.item.hidden=false;
       entry.label.textContent=name(entry);
-      entry.status.textContent=entry.error?'Photo unavailable':!entry.ready?'Saving photo…':entry.scan.type==='skin'?(entry.scan.review?'Review ready':'Captured'):
+      entry.status.textContent=entry.error?'Photo unavailable':!entry.ready?'Saving photo…':mode==='skin'?(entry.scan.review?'Review ready':'Captured'):
         ({complete:'Included',failed:'Not included',pending:'Processing',editing:'Boxes changed · recalculate',draft:'Not added yet'}[entry.scan.state]||'Captured');
       entry.button.disabled=busy||!entry.ready||Boolean(entry.error)||entry.scan.state==='pending';
       entry.button.setAttribute('aria-label',`Select ${name(entry)}: ${entry.status.textContent}`);
       entry.button.setAttribute('aria-pressed',String(selected===entry.scan.id));
     }
   }
-  function record(scan,source,boxes={}){
+  function record(scan,source,boxes={},key=null){
     if(entries.has(scan.id))return;
     const item=doc.createElement('li'),button=doc.createElement('button'),img=doc.createElement('img'),label=doc.createElement('strong'),status=doc.createElement('span');
     button.type='button';img.alt='';img.hidden=true;button.append(img,label,status);item.append(button);list.append(item);
-    const entry={scan,boxes:structuredClone(boxes),width:source.width,height:source.height,item,button,label,status,url:null,ready:false,error:null};
+    const entry={scan,key,boxes:structuredClone(boxes),width:source.width,height:source.height,item,button,label,status,url:null,ready:false,error:null};
     entries.set(scan.id,entry);selected=scan.id;button.addEventListener('click',()=>void select(entry));
     const full=doc.createElement('canvas');full.width=source.width;full.height=source.height;full.getContext('2d').drawImage(source,0,0);
     const version=generation;
@@ -59,7 +60,13 @@ export function createScanHistory({root,list,previous,next,position,onSelect,onE
     update();
   }
   function remove(entry){if(entry.url)URL.revokeObjectURL(entry.url);bytes-=entry.blob?.size||0;entry.item.remove();entries.delete(entry.scan.id);}
-  function clearType(type){request++;for(const entry of entries.values())if((entry.scan.type||'hb')===type)remove(entry);if(!entries.has(selected))selected=null;update();}
+  deleteButton.addEventListener('click',()=>{
+    const entry=entries.get(selected);if(busy||!entry||entry.scan.state==='pending')return;
+    request++;remove(entry);selected=null;
+    for(const other of entries.values())if(other.scan.reviewPhotoIds?.includes(entry.scan.id)){other.scan.review=null;other.scan.reviewPhotoIds=[];}
+    update();void onDelete(entry.scan.id,visible());
+  });
+  function resetReadings(){for(const entry of entries.values()){entry.scan.state='draft';entry.scan.result=null;entry.scan.message='';}update();}
   function clear(){generation++;request++;for(const entry of entries.values())remove(entry);selected=null;update();}
-  return {record,update,clear,clearType,get:id=>entries.get(id),attachReview(id,value){const e=entries.get(id);if(e)e.scan.review=structuredClone(value);update();},setMode(value){if(mode!==value)request++;mode=value;update();},setBusy(value){busy=value;update();},selectCurrent(id){selected=id;update();},saveBoxes(id,boxes){const e=entries.get(id);if(e)e.boxes=structuredClone(boxes);}};
+  return {record,update,clear,resetReadings,findByKey:key=>key?[...entries.values()].find(e=>e.key===key):null,selectId:async id=>{const e=entries.get(id);if(e)await select(e);},get:id=>entries.get(id),attachReview(id,value,photoIds=[id]){const e=entries.get(id);if(e){e.scan.review=structuredClone(value);e.scan.reviewPhotoIds=[...photoIds];}update();},setMode(value){if(mode!==value)request++;mode=value;update();},setBusy(value){busy=value;update();},selectCurrent(id){selected=id;update();},saveBoxes(id,boxes){const e=entries.get(id);if(e)e.boxes=structuredClone(boxes);}};
 }
