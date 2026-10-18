@@ -42,19 +42,17 @@ try{
  await open(p);await consent(p);await wait(p,"!document.getElementById('vision-busy').hidden");await click(p,'tab-hb');await click(p,'tab-skin');assert.equal(await p.eval("document.getElementById('vision-busy').hidden"),true);assert.equal(await p.eval("document.getElementById('open-vision').disabled"),false);console.log('PASS switching modes cancels pending analysis');
  await click(p,'guide-button');assert.equal(await p.eval("document.getElementById('guide-skin').hidden"),false);await p.eval("document.querySelector('[data-close-region-help]').click()");console.log('PASS mode tabs preserve photo and show the relevant guide');
  mode='success';await open(p);await consent(p);await wait(p,"!document.getElementById('vision-results').hidden");
- for(const width of [390,768]){
-  const m=await browser.newPage({width,height:width<600?844:1000,mobile:width===390,reducedMotion:true});await m.goto(base);await upload(m);
+ for(const width of [320,390,430,768]){
+  const m=await browser.newPage({width,height:width<600?844:1000,mobile:width<600,reducedMotion:true});await m.goto(base);await upload(m);
   if(width<600){
-   assert.equal(await m.eval(()=>{const r=document.getElementById('open-vision').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}),true);
-   await m.eval("document.querySelector('.review-categories li:last-child').scrollIntoView({block:'center'})");
-   assert.equal(await m.eval(()=>document.querySelector('.review-categories li:last-child').getBoundingClientRect().bottom<=document.querySelector('.review-action').getBoundingClientRect().top),true);
+   assert.equal(await m.eval(()=>{const list=document.querySelector('.review-categories').getBoundingClientRect(),action=document.querySelector('.review-action').getBoundingClientRect();return action.top>=list.bottom;}),true);
    await m.eval('scrollTo(0,0)');await m.screenshot({path:'web/reports/browser/mobile-skin-preview.jpg'});
   }
   await open(m);await upload(m,'side-input');
   assert.equal(await m.eval('document.documentElement.scrollWidth<=innerWidth'),true);
   assert.equal(await m.eval("document.getElementById('vision-dialog').scrollWidth<=document.getElementById('vision-dialog').clientWidth"),true);
   await m.screenshot({path:`web/reports/browser/visual-consent-${width}.jpg`,fullPage:true});await consent(m);await wait(m,"!document.getElementById('vision-results').hidden");
-  assert.equal(await m.eval('document.documentElement.scrollWidth<=innerWidth'),true);await m.screenshot({path:`web/reports/browser/visual-results-${width}.jpg`,fullPage:true});await m.close();
+  assert.equal(await m.eval('document.documentElement.scrollWidth<=innerWidth'),true);assert.equal(await m.eval(()=>document.querySelector('.review-action').getBoundingClientRect().top>=document.getElementById('vision-results').getBoundingClientRect().bottom),true);await m.screenshot({path:`web/reports/browser/visual-results-${width}.jpg`,fullPage:true});await m.close();
  }
  console.log('PASS mobile and tablet consent/results layouts without overflow');
  // Network errors from intentional 500/cancel scenarios are expected; runtime errors are not.
