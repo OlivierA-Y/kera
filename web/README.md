@@ -29,6 +29,14 @@ The live camera prefers the rear lens and requests its flashlight on by default 
 
 The camera stops when you capture, stop the feed, end the session, leave the page, or replace it with an uploaded image. Retake replaces the current photo and its regions; previously added readings remain in the session. Photos are kept only in page memory; the browser/OS may have their own lifecycle behavior. No history, accounts, analytics, or photo storage is added by this app.
 
+## Phone camera adjustment
+
+A separate browser-side device adjustment uses the reported phone 170 g/L → webcam 155 g/L comparison: **adjusted average = raw average − 15 g/L**. It does not retrain the network, modify its weights/features, alter individual readings or the averaging API, force future readings to 155, or claim clinical calibration. The result displays the raw and adjusted averages. The offset and its limitations are explained under Camera adjustment. No clipping is applied; implausible values should not be hidden.
+
+**Camera adjustment** in Hemoglobin mode allows switching this profile off for webcam photos. First visits default it on for phone browsers (mobile browser signal or iPhone/Android Mobile user agent), off for desktop; an explicit choice is saved only in that browser's local storage. If storage is unavailable the current page still works. A new temporary preview hostname has a separate browser preference. The selected adjustment applies to the entire session, including uploaded photos: do not mix cameras, and turn it off for uploads from another device. It is locked while finalizing and after a result, and can be changed again after starting a new scan.
+
+This one comparison assumes a constant bias and does not establish accuracy across people, devices, exposure, lighting, flash state or hemoglobin levels. The reference is the user's reported webcam estimate, not a laboratory blood result. Matching the study's Logitech C615 does not reproduce its controlled lighting and fixed exposure setup. Clinical validation and laboratory reference measurements remain necessary.
+
 ## Marking on a small touchscreen
 
 In Hemoglobin mode, capture or upload a photo and choose **Open touch editor**. Tap two opposite corners to create a box, or drag to draw it. Use the zoom slider/buttons and **Move photo** to inspect small areas. **Fine adjustment** moves or resizes the draft with large buttons. **Save box & continue** saves the selected region and advances to the next; saving all three returns to the main photo. Closing the editor discards only the unsaved draft. Display zoom does not resize the source image or change the model's pixel coordinates. The existing direct-drag and coordinate-entry methods remain available.

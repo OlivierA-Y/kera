@@ -55,6 +55,7 @@
           <section id="scan-session" class="scan-session" aria-label="Scan progress" hidden>
             <p id="session-count" class="session-count"></p><p id="session-progress" role="status" aria-live="polite"></p><ul id="session-failures" role="alert" hidden></ul>
           </section>
+        <details class="camera-adjustment-panel"><summary>Camera adjustment</summary><label class="camera-adjustment-choice"><input id="camera-adjustment" type="checkbox" aria-describedby="camera-adjustment-help"><span>Phone → webcam reference <strong>−15 g/L</strong></span></label><p id="camera-adjustment-help">Uses your reported phone 170 → webcam 155 comparison. Use only for photos from that phone under the same setup. Automatically selected on phones; remembered in this browser. Turn off for webcam photos. A single comparison does not establish accuracy or replace a blood-test calibration.</p></details>
         <div id="prepare-panel">
           <h2>A little preparation.<br>A better photo.</h2>
           <div class="guidance"><p><strong>Find even light.</strong><br>Use diffused, neutral light. Avoid glare and deep shadows.</p><p><strong>Make room for white.</strong><br>Place plain white paper beside your finger, in the same light.</p><p><strong>Show your middle nail.</strong><br>Keep the whole nail and nearby skin visible, without nail polish.</p></div>
@@ -78,7 +79,7 @@
           <div id="session-button-slot"><div id="session-buttons" class="session-buttons"><button id="continue-scan" class="button secondary-button" disabled>Next scan</button><button id="predict-button" class="button dark-button" disabled>End scan now</button></div></div>
         </section>
         <div id="result-panel" hidden aria-live="polite">
-          <h2>Your average estimate.</h2><div class="prediction"><span id="prediction-value">—</span><span class="prediction-unit">g/L</span></div><p class="result-caption">Average estimated hemoglobin</p><p id="average-caption" class="average-caption"></p><p class="result-context">An experimental average of your readings. This does not diagnose or rule out anemia. Averaging has not been clinically validated.</p><div id="quality-warnings" class="quality-warnings" hidden></div><p class="result-limitation">Low hemoglobin can be overestimated. Confirm any health concern with a clinician and a blood test.</p><button class="button dark-button" id="new-scan">Start a new scan</button>
+          <h2>Your average estimate.</h2><div class="prediction"><span id="prediction-value">—</span><span class="prediction-unit">g/L</span></div><p id="result-caption" class="result-caption">Average estimated hemoglobin</p><p id="adjustment-caption" class="adjustment-caption"></p><p id="average-caption" class="average-caption"></p><p class="result-context">An experimental average of your readings. This does not diagnose or rule out anemia. Averaging has not been clinically validated.</p><div id="quality-warnings" class="quality-warnings" hidden></div><p class="result-limitation">Low hemoglobin can be overestimated. Confirm any health concern with a clinician and a blood test.</p><button class="button dark-button" id="new-scan">Start a new scan</button>
         </div>
         <p class="model-note" id="model-note">Loading the trained neural network…</p>
         </section>
