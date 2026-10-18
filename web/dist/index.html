@@ -37,8 +37,13 @@
           <h3 id="scan-history-heading">Your session photos</h3>
           <p>Both tabs share these photos. Select a photo to load it here. In Hemoglobin, its region boxes can be edited; in Nail Health Analysis, the photo has no box overlays.</p>
           <nav class="history-navigation" aria-label="Switch saved photo"><button id="previous-saved-photo" class="button secondary-button" type="button">← Previous photo</button><span id="saved-photo-position" aria-live="polite"></span><button id="next-saved-photo" class="button secondary-button" type="button">Next photo →</button></nav>
-          <button id="delete-session-photo" class="text-button" type="button" disabled>Delete selected photo</button>
           <ul id="scan-history-list" class="scan-history-list"></ul>
+          <div class="photo-selection-actions">
+            <span class="current-photo-label" aria-live="polite">Select a picture</span>
+            <button id="delete-session-photo" class="photo-delete-button" type="button" aria-label="Delete current photo" title="Delete current photo" disabled>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>
+            </button>
+          </div>
           <p class="small-note">Session only. Reloading clears these previews.</p>
         </section>
         </div>

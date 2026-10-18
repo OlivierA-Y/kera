@@ -28,10 +28,16 @@ if (upload && label) {
 }
 if (remove) {
   remove.classList.add('photo-delete-button');
-  remove.textContent = 'Delete current photo';
+  if(!remove.querySelector('svg')){
+    const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    for(const [key,value]of Object.entries({viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':'1.7','stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true'}))icon.setAttribute(key,value);
+    const path=document.createElementNS(icon.namespaceURI,'path');path.setAttribute('d','M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7');icon.append(path);remove.replaceChildren(icon);
+  }
   remove.setAttribute('aria-label', 'Delete current photo');
   remove.title = 'Delete only the current picture from this session';
-  const actions=document.createElement('div');actions.className='photo-selection-actions';
-  const current=document.createElement('span');current.className='current-photo-label';current.setAttribute('aria-live','polite');
-  actions.append(current,remove);document.getElementById('scan-history-list')?.after(actions);
+  if(!remove.closest('.photo-selection-actions')){
+    const actions=document.createElement('div');actions.className='photo-selection-actions';
+    const current=document.createElement('span');current.className='current-photo-label';current.setAttribute('aria-live','polite');
+    actions.append(current,remove);document.getElementById('scan-history-list')?.after(actions);
+  }
 }

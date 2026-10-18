@@ -27,9 +27,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: auto;
+  width: 44px;
+  min-width: 44px;
   min-height: 44px;
-  padding: 10px 16px;
+  padding: 10px;
   border: 1px solid #c8c8c8;
   border-radius: 12px;
   background: #f3f3f3;
@@ -39,6 +40,7 @@
   line-height: 1.4;
   text-decoration: none;
 }
+#delete-session-photo.photo-delete-button svg { width: 20px; height: 20px; flex-shrink: 0; }
 #delete-session-photo.photo-delete-button:hover:not(:disabled) { background: #e0e0e0; text-decoration: none; }
 #delete-session-photo.photo-delete-button:disabled { color: #747474; cursor: not-allowed; }
 #upload-button.file-picker-button:focus-visible, #delete-session-photo.photo-delete-button:focus-visible, .demo-exit-link:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
