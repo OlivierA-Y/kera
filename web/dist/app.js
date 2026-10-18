@@ -1,3 +1,4 @@
+import { createTorchController } from './torch.js';
 import { initializeTouchRegions } from './touch-regions.js';
 import { initializeVisualAnalysis } from './visual.js';
 import { validateModel, validateBox } from './ml.js';
@@ -9,19 +10,29 @@ const context=photo.getContext('2d',{willReadFrequently:true,colorSpace:'srgb'})
 const kinds=['nail','skin','white'];
 const labels={nail:'Middle nail',skin:'Nearby skin',white:'White reference'};
 const prompts={nail:'Draw around the whole middle fingernail',skin:'Draw on skin between the middle finger’s two joints',white:'Draw around the plain white reference'};
-let model=null, stream=null, cameraRequest=0, facing='user', mode='empty', active='nail', boxes={}, drag=null, snapshot=null, lastSource='camera';
+let model=null, stream=null, cameraRequest=0, facing='environment', mode='empty', active='nail', boxes={}, drag=null, snapshot=null, lastSource='camera';
 let loadVersion=0, analysis='skin',hbResultReady=false;
 const MAX_SCANS=100;
 const MAX_PENDING_SCANS=3,MAX_PENDING_BYTES=128*1024*1024;
 let scans=[],processor=createScanProcessor(),sessionVersion=0,currentScanId=null,finalizing=false,actionBusy=false,uploadBusy=false,averageController=null;
 const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null});
 const touchEditor=initializeTouchRegions({getState:()=>({source:photo,boxes,active,editable:analysis==='hb'&&mode==='photo'&&Boolean(snapshot)&&!currentScanId&&!finalizing&&!actionBusy&&!uploadBusy}),onSave:(kind,box)=>{selectRegion(kind);saveRegion(box);}});
+const torch=createTorchController({onChange:renderTorch});
+function renderTorch(state=torch.state){
+  const live=mode==='live',button=$('torch-button');
+  button.hidden=!live;button.disabled=!state.supported||state.busy;
+  button.setAttribute('aria-pressed',state.supported&&state.on===null?'mixed':String(state.on===true));
+  button.textContent=state.busy?'Changing flash…':!state.supported?'Flash unavailable':state.on===null?(state.requested?'Flash: on requested':'Flash: off requested'):state.on?'Flash: on':'Flash: off';
+  $('torch-note').textContent=state.message;$('torch-note').hidden=!live||!state.message;
+  renderSession();
+}
+$('torch-button').addEventListener('click',()=>torch.toggle());
 function photoNotice(message){notice(message+' Photos stay in your browser. Optional visual analysis requires permission to send photos.');}
 function show(id,yes){$(id).hidden=!yes;}
 function error(message){$('error').textContent=message;show('error',Boolean(message));}
 function notice(message){$('notice').textContent=message;}
 function cameraStatus(text,live=false){$('camera-status').textContent=text;$('camera-status').classList.toggle('is-live',live);}
-function stopTracks(){if(stream)stream.getTracks().forEach(track=>track.stop());stream=null;video.srcObject=null;}
+function stopTracks(){torch.reset();if(stream)stream.getTracks().forEach(track=>track.stop());stream=null;video.srcObject=null;}
 function stopCamera(){cameraRequest++;stopTracks();if(mode==='live')setMode('empty');}
 function setMode(next){
   touchEditor.close();mode=next;
@@ -38,6 +49,7 @@ function setMode(next){
   $('view-heading').textContent=next==='result'?'Last photo':'Your scan';
   photo.style.cursor=next==='photo'&&analysis==='hb'?'crosshair':'default';
   renderAnalysis();
+  renderTorch();
   renderSession();
 }
 function renderAnalysis(){
@@ -87,7 +99,7 @@ async function startCamera(){
     if(request!==cameraRequest)return;
     if(!video.videoWidth)await new Promise(resolve=>video.addEventListener('loadedmetadata',resolve,{once:true}));
     snapshot=null;boxes={};currentScanId=null;visual.reset(false);$('box-layer').replaceChildren();setMode('live');updateRegions();photoNotice(analysis==='skin'?'Keep the affected skin or nail in focus.':'Keep your whole middle nail, skin between its two joints, and a white reference in the frame.');
-    const track=media.getVideoTracks()[0];track.addEventListener('ended',()=>{if(mode==='live'){stopCamera();error('The camera disconnected. Reconnect it or upload a photo.');}});
+    const track=media.getVideoTracks()[0];void torch.attach(track);track.addEventListener('ended',()=>{if(mode==='live'){stopCamera();error('The camera disconnected. Reconnect it or upload a photo.');}});
   }catch(e){
     if(request!==cameraRequest)return;
     stopTracks();setMode('empty');
@@ -250,7 +262,7 @@ function renderSession(){
   for(const input of $('coordinate-form').elements)input.disabled=blocked||Boolean(currentScanId);
   $('upload-button').disabled=blocked||(hb&&mode==='result')||full;$('file-input').disabled=blocked||(hb&&mode==='result')||full;
   $('retake-button').disabled=blocked||full;$('start-camera').disabled=blocked||full;
-  $('capture-button').disabled=blocked||full||mode!=='live'||!video.videoWidth;
+  $('capture-button').disabled=blocked||full||mode!=='live'||!video.videoWidth||torch.state.busy;
   $('switch-camera').disabled=blocked;
   photo.style.cursor=hb&&mode==='photo'&&!currentScanId&&!blocked?'crosshair':'default';
 }

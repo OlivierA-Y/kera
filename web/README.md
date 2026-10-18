@@ -25,6 +25,8 @@ Sessions support up to 100 included readings and are held only in page memory; r
 
 The interface suggests trying the middle finger on the other hand while keeping the same camera, lighting and distance. Repeated readings may reduce random variation, but improved accuracy for this model and multi-hand setup has not been established. Averaging does not remove systematic bias, make poor photos reliable, diagnose anemia, or replace clinical blood tests.
 
+The live camera prefers the rear lens and requests its flashlight on by default when torch capability is available. Use **Flash: on/off** to toggle it; the choice is remembered for subsequent captures in the current page session. The UI uses the track’s reported state, and explicitly says when the browser cannot report it. Unsupported cameras show **Flash unavailable**, while capture/upload remain usable. Changing the light preserves the camera’s existing constraints. Capture waits during a flashlight change; Stop camera remains available. Stopping/capturing releases the track and its light. Physical iPhone flashlight hardware was not tested.
+
 The camera stops when you capture, stop the feed, end the session, leave the page, or replace it with an uploaded image. Retake replaces the current photo and its regions; previously added readings remain in the session. Photos are kept only in page memory; the browser/OS may have their own lifecycle behavior. No history, accounts, analytics, or photo storage is added by this app.
 
 ## Marking on a small touchscreen
@@ -65,6 +67,8 @@ node web/tests/ml.test.mjs
 The parity fixtures use ten training patients, with no labels or patient identifiers. Model export does not read or evaluate the held-out test set.
 
 ## Verification
+
+Seven torch-controller tests cover default-on behavior, toggling and preference retention, unsupported/sequence capabilities, missing state reports, failures, camera-stop races and browser API exceptions. These use simulated tracks; physical flashlight hardware still needs device testing.
 
 ```bash
 npm --prefix web test
