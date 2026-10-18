@@ -76,7 +76,7 @@ Privacy: the browser makes resized JPEG copies up to 1600 px on the longest edge
 
 Some free endpoints, including NVIDIA’s free Nemotron vision endpoint, require data collection. To explicitly permit that, set `OPENROUTER_ALLOW_DATA_COLLECTION=true` in `web/.env` and restart. The consent screen then displays a provider data collection notice. Send only non-confidential images without identifying details. Your OpenRouter account privacy settings must also permit the endpoint. The default remains `false`; incompatible privacy/model combinations produce a specific configuration error rather than a generic 502.
 
-The server binds only to localhost, validates Host/Origin, limits body size and requests, allows one analysis at a time, and times out provider calls. It is a local development server; public hosting would require authentication, per-user quotas and a protected deployment. No public deployment is included.
+The server binds only to localhost, validates Host/Origin, limits body size and requests, allows one analysis at a time, and times out provider calls. Local mode accepts localhost only. The Vercel adapter accepts exact HTTPS deployment origins; its in-memory rate limit applies per function instance, rather than across the deployment.
 
 ## The real neural network
 
@@ -129,7 +129,11 @@ The skill's marketing-page image-count, footage, and motion-floor rules are docu
 
 ## Hosting
 
-Run `server.mjs` for both the app and optional vision endpoint. A static host can serve the interface, but averaged scan sessions and optional visual analysis require the local Node server. The standalone archive includes the static assets, Node server, configuration example and this guide. The private Site previously registered for the static app has not been deployed; there is no public deployment of the vision backend.
+Production: https://kera-alpha.vercel.app. Deploy from `web/` with `npx vercel --prod`. `vercel.json` serves `dist/` and routes averaging and vision requests to `api/index.mjs`, which reuses the Node server handlers. Node 22 is required.
+
+Configure `OPENROUTER_API_KEY`, `OPENROUTER_VISION_MODEL` and `OPENROUTER_ALLOW_DATA_COLLECTION` as server-side production environment variables, then redeploy. Local `.env` files and `.vercel/` metadata are excluded from Git and deployment uploads. Custom domains must be added as exact HTTPS origins in `KERA_ALLOWED_ORIGINS` (comma-separated). Camera access requires HTTPS or localhost.
+
+For local development, run `server.mjs` for the interface and API. A static-only host cannot provide averaged sessions or optional visual analysis.
 
 ## Research limitations
 

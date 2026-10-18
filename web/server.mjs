@@ -16,6 +16,14 @@ function json(res, status, value) {
   res.writeHead(status, { 'Content-Type':'application/json', 'Cache-Control':'no-store' });res.end(JSON.stringify(value));
 }
 async function readJson(req, { maxBody=MAX_BODY, tooLarge='The photos are too large. Use smaller images.', invalidJson='The image request could not be read.' }={}) {
+  // Vercel may provide a parsed body; local IncomingMessage requests stay streamed.
+  if(req.body!==undefined){
+    let bytes;
+    try{bytes=Buffer.isBuffer(req.body)?req.body:Buffer.from(typeof req.body==='string'?req.body:JSON.stringify(req.body));}
+    catch{throw new VisionError(400,'invalid_json',invalidJson);}
+    if(bytes.length>maxBody)throw new VisionError(413,'too_large',tooLarge);
+    try{return JSON.parse(bytes.toString('utf8'));}catch{throw new VisionError(400,'invalid_json',invalidJson);}
+  }
   let size=0;const buffers=[];
   for await (const buffer of req.iterator({destroyOnReturn:false})) {
     size+=buffer.length;
@@ -40,7 +48,12 @@ export function validateInput(body) {
   if (!seen.has('top')) throw new VisionError(400,'top_required','Include a top view of the nail.');
   return body.photos.map(({view,data_url})=>({view,data_url}));
 }
-export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=process.env.OPENROUTER_VISION_MODEL||DEFAULT_MODEL, provider=analyzePhotos, allowDataCollection=process.env.OPENROUTER_ALLOW_DATA_COLLECTION==='true', maxRequests=10, timeoutMs=45000 }={}) {
+export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=process.env.OPENROUTER_VISION_MODEL||DEFAULT_MODEL, provider=analyzePhotos, allowDataCollection=process.env.OPENROUTER_ALLOW_DATA_COLLECTION==='true', maxRequests=10, timeoutMs=45000, allowedOrigins=[] }={}) {
+  const trustedOrigins=new Map(allowedOrigins.map(origin=>{
+    const parsed=new URL(origin);
+    if(parsed.protocol!=='https:'||parsed.origin!==origin)throw new Error('Deployment origins must be exact HTTPS origins.');
+    return [parsed.host,origin];
+  }));
   let active=0;let recent=[];
   const server=createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
@@ -51,11 +64,14 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
     try {
       // Reject DNS rebinding and cross-origin access to this credential-bearing local server.
       const host=req.headers.host;
-      if (!host || !new Set([`localhost:${server.address().port}`,`127.0.0.1:${server.address().port}`,`[::1]:${server.address().port}`]).has(host)) throw new VisionError(403,'invalid_host','This local server accepts localhost requests only.');
-      const url=new URL(req.url,`http://${host}`);
+      const address=server.address();
+      const localHosts=address?new Set([`localhost:${address.port}`,`127.0.0.1:${address.port}`,`[::1]:${address.port}`]):new Set();
+      if (!host || (!localHosts.has(host)&&!trustedOrigins.has(host))) throw new VisionError(403,'invalid_host','This server does not accept this host.');
+      const origin=trustedOrigins.get(host)||`http://${host}`;
+      const url=new URL(req.url,origin);
       if (url.pathname==='/api/scans/average') {
         if (req.method!=='POST') throw new VisionError(405,'method_not_allowed','Use POST to average scans.');
-        if (req.headers.origin!==`http://${host}` || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Scan averaging must start from this app.');
+        if (req.headers.origin!==origin || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Scan averaging must start from this app.');
         if (req.headers['content-type']?.split(';')[0].trim()!=='application/json') throw new VisionError(415,'invalid_type','Use a JSON scan request.');
         if (Number(req.headers['content-length']||0)>MAX_AVERAGE_BODY) throw new VisionError(413,'too_large','The scan request is too large. Send at most 100 short readings.');
         const body=await readJson(req,{maxBody:MAX_AVERAGE_BODY,tooLarge:'The scan request is too large. Send at most 100 short readings.',invalidJson:'The scan request could not be read.'});
@@ -64,7 +80,7 @@ export function createApp({ apiKey=process.env.OPENROUTER_API_KEY||'', model=pro
       if (url.pathname==='/api/vision/status' && req.method==='GET') return json(res,200,{configured:Boolean(apiKey),provider:'OpenRouter',model:apiKey?model:null,dataCollection:allowDataCollection?'allowed':'denied',privacy:'Photos are sent through OpenRouter to its selected model provider only after explicit permission. Kera does not save photos or observations.'});
       if (url.pathname==='/api/vision/analyze') {
         if (req.method!=='POST') throw new VisionError(405,'method_not_allowed','Use POST for visual analysis.');
-        if (req.headers.origin!==`http://${host}` || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Visual analysis must start from this app.');
+        if (req.headers.origin!==origin || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site']!=='same-origin')) throw new VisionError(403,'cross_origin','Visual analysis must start from this app.');
         if (req.headers['content-type']?.split(';')[0].trim()!=='application/json') throw new VisionError(415,'invalid_type','Use a JSON image request.');
         if (Number(req.headers['content-length']||0)>MAX_BODY) throw new VisionError(413,'too_large','The photos are too large.');
         const photos=validateInput(await readJson(req));

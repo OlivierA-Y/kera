@@ -26,3 +26,6 @@ references/Usage Notes.ipynb
 .env
 .env.*
 !.env.example
+
+# Local Vercel project metadata
+.vercel/
