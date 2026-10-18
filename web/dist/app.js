@@ -199,14 +199,14 @@ function renderAnalysis(){
   $('capture-instruction').textContent=skin?'Bring the affected skin or nail into clear, even light.':stickerMode==='reference'?'Keep the entire MLH sticker in view.':stickerMode==='mlh'?'Keep your middle finger and MLH sticker in view.':'Keep your middle finger and a white reference in view.';
   $('frame-note').textContent=skin?'Keep the affected area in focus.':stickerMode==='reference'?'Reference capture: sticker only.':stickerMode==='mlh'?'Keep nail and all sticker colors in view.':'Keep your whole middle nail and white reference in view.';
   const referenceSetup=stickerMode==='reference';
-  $('preparation-title').textContent=referenceSetup?'Start with your webcam.':'A little preparation. A better photo.';
+  $('preparation-title').textContent=referenceSetup?'Start with your webcam.':'Before you take a photo';
   const guidance=referenceSetup?[
     ['Use your reference webcam.','Capture the physical sticker you will also use with your phone.'],
     ['Find even light.','Use diffuse light. Keep the sticker sharp and avoid glare or shadows.'],
     ['Sample solid colors.','Mark white, orange/red M, blue L and yellow H. Keep boxes inside the ink.']
-  ]:[['Find even light.','Use diffused, neutral light. Avoid glare and deep shadows.'],[stickerMode==='mlh'?'Include your sticker.':'Make room for white.',stickerMode==='mlh'?'Place the same MLH sticker beside your finger at the same height and in the same light.':'Place plain white paper beside your finger in the same light.'],['Show your middle nail.','Keep the whole nail and nearby skin visible, without nail polish.']];
-  $('preparation-guidance').replaceChildren(...guidance.map(([title,copy])=>{const p=document.createElement('p'),strong=document.createElement('strong');strong.textContent=title;p.append(strong,document.createElement('br'),copy);return p;}));
-  $('preparation-next').textContent=referenceSetup?'Save and export the reference, then import it on your phone.':`After capture, mark ${kinds.length} regions. Each photo needs its own marks.`;
+  ]:[[null,'Use soft, neutral light without glare or deep shadows.'],[null,stickerMode==='mlh'?'Place the same MLH sticker beside your finger, level with it and under the same light.':'Place plain white paper beside your finger in the same light.'],[null,'Keep your whole middle fingernail and the surrounding skin visible. Remove any nail polish.']];
+  $('preparation-guidance').replaceChildren(...guidance.map(([title,copy])=>{const p=document.createElement('p');if(title){const strong=document.createElement('strong');strong.textContent=title;p.append(strong,document.createElement('br'));}p.append(copy);return p;}));
+  $('preparation-next').textContent=referenceSetup?'Save and export the reference, then import it on your phone.':stickerMode==='mlh'?'After taking each photo, mark all six regions.':'After taking each photo, mark all three regions.';
   $('skin-instruction').textContent=hasPhoto?'Visible changes to discuss with a clinician.':'Capture a close-up of the area you want to review.';
   photo.setAttribute('aria-label',skin?'Captured skin or nail photo.':'Captured photo. Mark regions using the region controls, or enter coordinates.');
   photo.style.cursor=!skin&&mode==='photo'&&!currentScanId&&!finalizing?'crosshair':'default';
@@ -531,7 +531,7 @@ $('model-dialog').addEventListener('click',event=>{if(event.target===$('model-di
 window.addEventListener('pagehide',()=>{stopStickerDetection();scanHistory.clear();sessionVersion++;cameraRequest++;loadVersion++;averageController?.abort();processor.close();scans=[];stopTracks();snapshot=null;context.clearRect(0,0,photo.width,photo.height);});
 window.addEventListener('pageshow',event=>{if(event.persisted){hbResultReady=false;processor=createScanProcessor();currentScanId=null;boxes={};finalizing=false;actionBusy=false;uploadBusy=false;visual.reset(false);$('prediction-value').textContent='—';setMode('empty');updateRegions();}});
 async function loadModel(){
-  try{const response=await fetch(new URL('./assets/model.json',import.meta.url));if(!response.ok)throw new Error('Model download failed');model=validateModel(await response.json());$('model-note').textContent='Trained neural network. Runs on your device.';updateRegions();}
+  try{const response=await fetch(new URL('./assets/model.json',import.meta.url));if(!response.ok)throw new Error('Model download failed');model=validateModel(await response.json());$('model-note').textContent='The trained neural network runs on your device.';updateRegions();}
   catch(e){$('model-note').textContent='The trained model could not load. Reload the page to try again.';error('The trained model could not load. Check your connection and reload the app.');}
 }
 const scanDockMedia=matchMedia('(max-width: 740px)');
