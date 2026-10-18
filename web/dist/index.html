@@ -28,7 +28,7 @@
     <div class="workspace-context"><span id="workflow-label">Hemoglobin</span><span id="workflow-step">Capture</span></div>
     <div class="workspace">
       <section class="camera-panel" aria-labelledby="view-heading">
-        <div class="view-heading"><h2 id="view-heading">Your photo</h2><span id="camera-status" class="camera-status">Camera off</span></div>
+        <div class="view-heading"><h2 id="view-heading">Your photo</h2><span id="camera-status" class="camera-status">Camera off</span><div id="mobile-region-editor-slot"></div></div>
         <div id="photo-history-slot">
         <section id="scan-history" class="scan-history" aria-labelledby="scan-history-heading" hidden>
           <h3 id="scan-history-heading">Your session photos</h3>
@@ -80,8 +80,8 @@
         <div id="annotate-panel" hidden>
           <div class="region-heading"><h2>Choose the regions.</h2><button id="region-help-button" class="region-help-button" type="button" aria-label="Help with taking a photo and choosing regions" aria-haspopup="dialog" aria-controls="region-help-dialog" title="Photo and region guide">?</button></div><p class="panel-copy">Draw a box around each area on your photo. Keep the regions separate.</p>
           <div id="sticker-detection" class="sticker-detection" hidden><button id="sticker-detect" class="button secondary-button">Find MLH sticker</button><p id="sticker-detection-note" class="small-note" role="status" aria-live="polite"></p></div>
-          <button id="touch-editor-button" class="button secondary-button" aria-haspopup="dialog" aria-controls="touch-editor" aria-describedby="region-editor-help">Edit region boxes ↗</button>
-          <p id="region-editor-help" class="region-editor-help">Open a larger view to draw, move or resize the nail, skin and reference boxes. Save each box to apply your changes.</p>
+          <div id="region-editor-slot"><button id="touch-editor-button" class="button secondary-button" aria-haspopup="dialog" aria-controls="touch-editor" aria-describedby="region-editor-help" hidden>Mark regions <span aria-hidden="true">↗</span></button></div>
+          <p id="region-editor-help" class="region-editor-help">Open a larger view to draw, move or resize the nail, skin and reference boxes. Completed boxes save automatically.</p>
           <div class="region-buttons" role="group" aria-label="Choose a region to mark">
             <button class="region-button" data-region="nail" aria-pressed="true"><span class="region-check" aria-hidden="true"></span><span><strong>Middle nail</strong><small>The whole nail, from cuticle to tip</small></span><span class="region-edit" aria-hidden="true">↗</span></button>
             <button class="region-button" data-region="skin" aria-pressed="false"><span class="region-check" aria-hidden="true"></span><span><strong>Nearby skin</strong><small>Between the two joints on the middle finger</small></span><span class="region-edit" aria-hidden="true">↗</span></button>
@@ -136,7 +136,7 @@
       <p id="touch-message" role="status">Tap two opposite corners.</p><p id="touch-readout" class="small-note"></p>
       <details class="touch-adjust"><summary>Move or resize this box</summary><div role="group" aria-label="Move box"><button data-touch-adjust="left">← Left</button><button data-touch-adjust="up">↑ Up</button><button data-touch-adjust="down">↓ Down</button><button data-touch-adjust="right">Right →</button></div><div role="group" aria-label="Resize box"><button data-touch-adjust="wider">Wider</button><button data-touch-adjust="narrower">Narrower</button><button data-touch-adjust="taller">Taller</button><button data-touch-adjust="shorter">Shorter</button></div></details>
     </div>
-    <div class="touch-editor-footer"><button id="touch-save" class="button dark-button" disabled>Save box &amp; continue</button><p>Only saved boxes are kept. Photos stay on your device.</p></div>
+    <div class="touch-editor-footer"><button id="touch-save" class="button dark-button" disabled>Next region</button><p>Boxes save automatically. Photos stay on your device.</p></div>
   </dialog>
   <dialog id="region-help-dialog" aria-labelledby="region-help-title">
     <div class="region-help-shell">

@@ -400,6 +400,7 @@ function renderSession(){
   renderSticker();
   $('camera-adjustment').disabled=blocked||hbResultReady;
   scanHistory.setBusy(blocked);
+  show('touch-editor-button',hb&&mode==='photo');
   $('touch-editor-button').disabled=blocked||Boolean(currentScanId)||!snapshot;
   const dockVisible=scanDockMedia.matches&&hb&&mode!=='result'&&(regionsMarked||scans.length>0);
   show('mobile-scan-dock',dockVisible);document.body.classList.toggle('has-scan-dock',Boolean(dockVisible));
@@ -534,7 +535,11 @@ async function loadModel(){
   catch(e){$('model-note').textContent='The trained model could not load. Reload the page to try again.';error('The trained model could not load. Check your connection and reload the app.');}
 }
 const scanDockMedia=matchMedia('(max-width: 740px)');
-function mountScanActions(){(scanDockMedia.matches?$('mobile-scan-dock'):$('session-button-slot')).append($('session-buttons'));renderSession();}
+function mountScanActions(){
+  (scanDockMedia.matches?$('mobile-scan-dock'):$('session-button-slot')).append($('session-buttons'));
+  (scanDockMedia.matches?$('mobile-region-editor-slot'):$('region-editor-slot')).append($('touch-editor-button'));
+  renderSession();
+}
 scanDockMedia.addEventListener('change',mountScanActions);
 new ResizeObserver(()=>document.documentElement.style.setProperty('--scan-dock-height',$('mobile-scan-dock').getBoundingClientRect().height+'px')).observe($('mobile-scan-dock'));
 mountScanActions();
