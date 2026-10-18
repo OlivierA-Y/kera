@@ -1,4 +1,4 @@
-import { readCameraAdjustment, saveCameraAdjustment, adjustHemoglobin } from './camera-adjustment.js';
+import { createScanHistory } from './scan-history.js';
 import { createTorchController } from './torch.js';
 import { initializeTouchRegions } from './touch-regions.js';
 import { initializeVisualAnalysis } from './visual.js';
@@ -13,14 +13,45 @@ const labels={nail:'Middle nail',skin:'Nearby skin',white:'White reference'};
 const prompts={nail:'Draw around the whole middle fingernail',skin:'Draw on skin between the middle finger’s two joints',white:'Draw around the plain white reference'};
 let model=null, stream=null, cameraRequest=0, facing='environment', mode='empty', active='nail', boxes={}, drag=null, snapshot=null, lastSource='camera';
 let loadVersion=0, analysis='skin',hbResultReady=false;
+let currentPhotoId=null,photoNumber=0;
+function recordPhoto(source,key=null){
+  const existing=scanHistory.findByKey(key);if(existing)return existing.scan.id;
+  const scan={id:crypto.randomUUID(),number:++photoNumber,state:'draft',result:null,message:'',review:null};
+  scanHistory.record(scan,source,{},key);return scan.id;
+}
 const MAX_SCANS=100;
 const MAX_PENDING_SCANS=3,MAX_PENDING_BYTES=128*1024*1024;
 let scans=[],processor=createScanProcessor(),sessionVersion=0,currentScanId=null,finalizing=false,actionBusy=false,uploadBusy=false,averageController=null;
-const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null});
+const visual=initializeVisualAnalysis({getPhoto:()=>snapshot?photo:null,onResult:(value,additionalId)=>{const ids=[currentPhotoId,additionalId].filter(Boolean);for(const id of ids)scanHistory.attachReview(id,value,ids);},onAdditionalPhoto:(source,key)=>{const id=recordPhoto(source,key);scanHistory.selectCurrent(currentPhotoId);return id;}});
 const touchEditor=initializeTouchRegions({getState:()=>({source:photo,boxes,active,editable:analysis==='hb'&&mode==='photo'&&Boolean(snapshot)&&!currentScanId&&!finalizing&&!actionBusy&&!uploadBusy}),onSave:(kind,box)=>{selectRegion(kind);saveRegion(box);}});
-let cameraAdjustment=readCameraAdjustment();
-$('camera-adjustment').checked=cameraAdjustment;
-$('camera-adjustment').addEventListener('change',()=>{cameraAdjustment=$('camera-adjustment').checked;saveCameraAdjustment(cameraAdjustment);});
+const scanHistory=createScanHistory({root:$('scan-history'),list:$('scan-history-list'),previous:$('previous-saved-photo'),next:$('next-saved-photo'),position:$('saved-photo-position'),deleteButton:$('delete-session-photo'),onDelete:deleteHistoryPhoto,onSelect:restoreHistoryPhoto,onError:error});
+function restoreHistoryPhoto(entry,image){
+  if(finalizing||actionBusy||uploadBusy)return;
+  cameraRequest++;loadVersion++;stopTracks();touchEditor.close();
+  photo.width=image.width;photo.height=image.height;context.drawImage(image,0,0);
+  snapshot=context.getImageData(0,0,photo.width,photo.height);drag=null;lastSource='upload';currentScanId=null;
+  boxes=structuredClone(entry.boxes);currentPhotoId=entry.scan.id;
+  if(analysis==='hb')hbResultReady=false;
+  visual.reset(true);setMode('photo');selectRegion('nail');updateRegions();
+  if(analysis==='skin'&&entry.scan.review)visual.restoreReview(entry.scan.review);
+  error('');photoNotice(analysis==='hb'?'Saved photo selected. Edit its boxes; finishing replaces this reading rather than adding a duplicate.':'Saved photo selected. Skin & nail shows the original photo without region boxes.');
+}
+
+async function deleteHistoryPhoto(id,remaining){
+  scans=scans.filter(scan=>scan.id!==id);hbResultReady=false;
+  visual.reset(Boolean(snapshot));
+  $('prediction-value').textContent='-';$('average-caption').textContent='';
+  if(currentPhotoId===id){
+    cameraRequest++;loadVersion++;stopTracks();currentPhotoId=null;currentScanId=null;snapshot=null;boxes={};drag=null;
+    visual.reset(false);$('box-layer').replaceChildren();context.clearRect(0,0,photo.width,photo.height);setMode('empty');updateRegions();
+    const next=remaining.find(entry=>entry.ready&&entry.scan.state!=='pending');if(next)await scanHistory.selectId(next.scan.id);
+  }else{
+    if(mode==='result')setMode(snapshot?'photo':'empty');
+    const review=scanHistory.get(currentPhotoId)?.scan.review;if(analysis==='skin'&&review)visual.restoreReview(review);
+  }
+  renderSession();photoNotice('Photo deleted from both tabs, including its hemoglobin reading. Finish again to update the session result.');
+}
+
 const torch=createTorchController({onChange:renderTorch});
 function renderTorch(state=torch.state){
   const live=mode==='live',button=$('torch-button');
@@ -58,7 +89,7 @@ function setMode(next){
 }
 function renderAnalysis(){
   const skin=analysis==='skin',hasPhoto=Boolean(snapshot);
-  document.body.dataset.analysis=analysis;
+  document.body.dataset.analysis=analysis;scanHistory.setMode(analysis);scanHistory.selectCurrent(currentPhotoId);
   show('hb-workflow',!skin);show('visual-analysis',skin);
   show('box-layer',!skin);show('drawing-prompt',!skin&&mode==='photo');
   show('add-angle',skin&&hasPhoto);
@@ -78,9 +109,12 @@ function selectAnalysis(next){
   if(next===analysis||finalizing||actionBusy||uploadBusy)return;
   visual.deactivate();
   touchEditor.close();analysis=next;drag=null;
+  if(snapshot&&currentPhotoId)boxes=structuredClone(scanHistory.get(currentPhotoId)?.boxes||{});
+  updateRegions();
   if(next==='hb'&&hbResultReady){cameraRequest++;stopTracks();setMode('result');}
   else if(next==='skin'&&mode==='result')setMode(snapshot?'photo':'empty');
   else{renderAnalysis();renderSession();}
+  const review=scanHistory.get(currentPhotoId)?.scan.review;if(next==='skin'&&review)visual.restoreReview(review);
   notice(snapshot?(next==='skin'?'Add another angle if useful, then continue to preview and consent.':'Hemoglobin requires the middle nail, nearby skin and white reference in the same photo.'):(next==='skin'?'Take or upload a close-up. Nothing is sent without your permission.':'Capture your middle nail, nearby skin and a white reference. Estimation stays on this device.'));
 }
 for(const [id,value] of [['tab-hb','hb'],['tab-skin','skin']]){
@@ -113,13 +147,15 @@ async function startCamera(){
     if(request===cameraRequest){$('start-camera').disabled=false;$('start-camera').lastChild.textContent='Turn on camera';}
   }
 }
-function loadSnapshot(source,width,height,origin){
+function loadSnapshot(source,width,height,origin,key=null){
   if(finalizing||(analysis==='hb'&&mode==='result'))return;
   if(!width||!height)throw new Error('This photo could not be read. Try a JPEG or PNG image.');
   if(width*height>24000000)throw new Error('This photo is too large. Use a photo under 24 megapixels.');
   photo.width=width;photo.height=height;context.drawImage(source,0,0,width,height);
   snapshot=context.getImageData(0,0,width,height);cameraRequest++;stopTracks();
-  boxes={};currentScanId=null;lastSource=origin;visual.reset(true);setMode('photo');selectRegion('nail');updateRegions();error('');
+  boxes={};currentScanId=null;currentPhotoId=null;lastSource=origin;visual.reset(true);setMode('photo');selectRegion('nail');updateRegions();error('');
+  currentPhotoId=recordPhoto(photo,key);if(scanHistory.get(currentPhotoId).scan.state==='pending')currentScanId=currentPhotoId;boxes=structuredClone(scanHistory.get(currentPhotoId).boxes);updateRegions();renderAnalysis();
+  if(analysis==='skin'&&scanHistory.get(currentPhotoId).scan.review)visual.restoreReview(scanHistory.get(currentPhotoId).scan.review);
   photoNotice(analysis==='skin'?'Photo captured. Add another angle if useful, then continue.':'Photo captured. Mark the three regions to add this hemoglobin reading.');
 }
 $('start-camera').addEventListener('click',startCamera);
@@ -142,16 +178,19 @@ $('file-input').addEventListener('change',async event=>{
   uploadBusy=true;renderSession();
   try{
     const bitmap=await createImageBitmap(file);
-    try{if(version===loadVersion)loadSnapshot(bitmap,bitmap.width,bitmap.height,'upload');}finally{bitmap.close();}
+    try{
+      const key=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer())),n=>n.toString(16).padStart(2,'0')).join('');
+      if(version===loadVersion)loadSnapshot(bitmap,bitmap.width,bitmap.height,'upload',key);
+    }finally{bitmap.close();}
   }catch(e){error(e.message||'This image could not be opened. Try another JPEG or PNG.');}
   finally{if(version===loadVersion){uploadBusy=false;renderSession();event.target.value='';}}
 });
 async function retake(){
   if(finalizing)return;
-  loadVersion++;uploadBusy=false;currentScanId=null;
+  loadVersion++;uploadBusy=false;currentScanId=null;currentPhotoId=null;
   error('');snapshot=null;boxes={};drag=null;visual.reset(false);$('box-layer').replaceChildren();context.clearRect(0,0,photo.width,photo.height);setMode('empty');
   updateRegions();
-  if(analysis==='hb'&&activeScanCount()>=MAX_SCANS){notice('This session has reached 100 photos. Choose End scan now.');return;}
+  if(analysis==='hb'&&activeScanCount()>=MAX_SCANS){notice('This session has reached 100 photos. Choose Finish & see result.');return;}
   if(lastSource==='camera'){
     await startCamera();if(mode==='live')$('capture-button').focus({preventScroll:true});
   }else{notice('Upload another photo, or turn on your camera.');$('upload-button').focus({preventScroll:true});}
@@ -159,8 +198,8 @@ async function retake(){
 }
 $('retake-button').addEventListener('click',retake);
 $('new-scan').addEventListener('click',async()=>{
-  hbResultReady=false;sessionVersion++;averageController?.abort();averageController=null;processor.close();processor=createScanProcessor();scans=[];currentScanId=null;
-  $('prediction-value').textContent='—';$('adjustment-caption').textContent='';$('average-caption').textContent='';$('quality-warnings').replaceChildren();show('quality-warnings',false);
+  scanHistory.resetReadings();currentPhotoId=null;hbResultReady=false;sessionVersion++;averageController?.abort();averageController=null;processor.close();processor=createScanProcessor();scans=[];currentScanId=null;
+  $('prediction-value').textContent='—';$('average-caption').textContent='';$('quality-warnings').replaceChildren();show('quality-warnings',false);
   setMode('empty');await retake();
 });
 function displayGeometry(){
@@ -201,10 +240,12 @@ function updateRegions(){
 }
 function saveRegion(box){
   if(analysis!=='hb')return;
-  if(finalizing||currentScanId)throw new Error('This photo has already been added. Choose Next scan to add another photo, or end the scan now.');
+  if(finalizing||currentScanId)throw new Error('This photo has already been added. Choose Add another photo to continue, or Finish & see result.');
   validateBox(box,photo.width,photo.height);
   if(box[3]-box[1]<3||box[2]-box[0]<3)throw new Error('Draw a slightly larger box, at least 3 pixels wide and high.');
-  boxes[active]=box;error('');updateRegions();
+  boxes[active]=box;scanHistory.saveBoxes(currentPhotoId,boxes);
+  const saved=scans.find(scan=>scan.id===currentPhotoId);if(saved){saved.state='editing';saved.result=null;hbResultReady=false;}
+  error('');updateRegions();
   const next=kinds.find(kind=>!boxes[kind]);selectRegion(next||active);
 }
 for(const button of document.querySelectorAll('[data-region]'))button.addEventListener('click',()=>selectRegion(button.dataset.region));
@@ -230,6 +271,7 @@ function currentReady(){return analysis==='hb'&&mode==='photo'&&snapshot&&model&
 function activeScanCount(){return scans.filter(scan=>scan.state!=='failed').length;}
 function hasWorkerCapacity(){const pending=scans.filter(scan=>scan.state==='pending');return pending.length<MAX_PENDING_SCANS&&pending.reduce((sum,scan)=>sum+scan.bytes,0)+(snapshot?.data.byteLength||0)<=MAX_PENDING_BYTES;}
 function renderSession(){
+  scanHistory.update();
   const pending=scans.filter(scan=>scan.state==='pending').length;
   const included=scans.filter(scan=>scan.state==='complete').length;
   const failed=scans.filter(scan=>scan.state==='failed');
@@ -242,12 +284,11 @@ function renderSession(){
   $('session-count').textContent=`${scans.length} ${scans.length===1?'photo added':'photos added'}`;
   $('session-progress').textContent=finalizing?(pending?`Finishing your scan. Waiting for ${pending} ${pending===1?'photo':'photos'}…`:'Calculating your average…'):
     pending?`Processing ${pending} ${pending===1?'photo':'photos'} in the background. You can continue scanning.`:
-    included?`${included} ${included===1?'reading is':'readings are'} ready. Choose End scan now for your result.`:'Take another photo to continue.';
+    included?`${included} ${included===1?'reading is':'readings are'} ready. Choose Finish & see result for your result.`:'Take another photo to continue.';
   const failures=$('session-failures');failures.replaceChildren();
   for(const scan of failed){const li=document.createElement('li');li.textContent=`Photo ${scan.number} was not included: ${scan.message}`;failures.append(li);}
   show('session-failures',failed.length>0);
-  const blocked=finalizing||actionBusy||uploadBusy;
-  $('camera-adjustment').disabled=blocked||hbResultReady;
+  const blocked=finalizing||actionBusy||uploadBusy;scanHistory.setBusy(blocked);
   $('touch-editor-button').disabled=blocked||Boolean(currentScanId)||!snapshot;
   const dockVisible=scanDockMedia.matches&&hb&&mode!=='result'&&(regionsMarked||scans.length>0);
   show('mobile-scan-dock',dockVisible);document.body.classList.toggle('has-scan-dock',Boolean(dockVisible));
@@ -257,10 +298,10 @@ function renderSession(){
   $('predict-button').disabled=blocked||(!currentReady()&&pending+included===0);
   $('continue-scan').disabled=blocked||(!currentReady()&&!currentScanId)||full||waitingForCapacity;
   $('session-action-note').textContent=finalizing?'Please wait. Your photos are still being processed.':
-    full?'This session has reached 100 photos. Choose End scan now.':
-    waitingForCapacity?'Photos are still processing. End scan now will wait and include this photo.':
+    full?'This session has reached 100 photos. Choose Finish & see result.':
+    waitingForCapacity?'Photos are still processing. Finish & see result will wait and include this photo.':
     currentScanId?'This photo has been added. You can continue or try ending the scan again.':
-    currentReady()?'Both buttons add this photo. Next scan lets you take another.':
+    currentReady()?'Both buttons include this photo. Add another photo continues capturing; Finish & see result shows the average.':
     scans.length?'End now uses the photos already added. Finish marking this photo to include it.':'Mark all three regions, then choose a button below.';
   for(const id of ['tab-hb','tab-skin'])$(id).disabled=blocked;
   for(const button of document.querySelectorAll('[data-region]'))button.disabled=blocked||Boolean(currentScanId);
@@ -274,14 +315,18 @@ function renderSession(){
 function addCurrentScan(){
   if(currentScanId)return;
   if(!currentReady())throw new Error('Mark all three regions before adding this photo.');
-  if(activeScanCount()>=MAX_SCANS)throw new Error('This session has reached 100 photos. Choose End scan now.');
+  if(activeScanCount()>=MAX_SCANS&&!scans.some(scan=>scan.id===currentPhotoId))throw new Error('This session has reached 100 photos. Choose Finish & see result.');
   if(!hasWorkerCapacity())throw new Error('Please wait for a photo to finish processing, then try again.');
   for(let a=0;a<kinds.length;a++)for(let b=a+1;b<kinds.length;b++){
     const x=boxes[kinds[a]],y=boxes[kinds[b]];
     if(Math.max(x[0],y[0])<Math.min(x[2],y[2])&&Math.max(x[1],y[1])<Math.min(x[3],y[3]))throw new Error('Keep all three region boxes separate. Adjust overlapping boxes first.');
   }
-  const version=sessionVersion,scan={id:crypto.randomUUID(),number:scans.length+1,state:'pending',bytes:snapshot.data.byteLength,result:null,message:''};
-  currentScanId=scan.id;scans.push(scan);
+  const version=sessionVersion;
+  const scan=scanHistory.get(currentPhotoId)?.scan;
+  if(!scan)throw new Error('Select or capture a photo before adding a reading.');
+  Object.assign(scan,{state:'pending',bytes:snapshot.data.byteLength,result:null,message:''});
+  currentScanId=scan.id;if(!scans.includes(scan))scans.push(scan);
+  scanHistory.saveBoxes(scan.id,boxes);
   scan.promise=processor.process({id:scan.id,model,image:snapshot,boxes:structuredClone(boxes)}).then(result=>{
     if(version!==sessionVersion)return;
     scan.state='complete';scan.result=result;renderSession();
@@ -297,7 +342,7 @@ $('continue-scan').addEventListener('click',async()=>{
   if(analysis!=='hb'||finalizing||actionBusy||(!currentReady()&&!currentScanId))return;
   const version=sessionVersion;
   actionBusy=true;error('');
-  try{addCurrentScan();await retake();photoNotice('Photo added. Take or upload your next photo, or choose End scan now.');}
+  try{addCurrentScan();await retake();photoNotice('Photo added. Take or upload your next photo, or choose Finish & see result.');}
   catch(e){error(e.message);}
   finally{if(version===sessionVersion){actionBusy=false;renderSession();(activeScanCount()>=MAX_SCANS?$('predict-button'):mode==='live'?$('capture-button'):$('upload-button')).focus({preventScroll:true});}}
 });
@@ -305,10 +350,10 @@ $('predict-button').addEventListener('click',async()=>{
   if(analysis!=='hb'||finalizing||actionBusy)return;
   error('');
   if(!currentReady()&&!scans.some(scan=>scan.state==='pending'||scan.state==='complete'))return;
-  const version=sessionVersion,adjustmentEnabled=cameraAdjustment;finalizing=true;loadVersion++;cameraRequest++;stopTracks();
+  const version=sessionVersion;finalizing=true;loadVersion++;cameraRequest++;stopTracks();
   if(mode==='live')setMode('empty');renderSession();
   try{
-    if(currentReady()&&activeScanCount()<MAX_SCANS){
+    if(currentReady()&&(activeScanCount()<MAX_SCANS||scans.some(scan=>scan.id===currentPhotoId))){
       while(!hasWorkerCapacity()){
         await Promise.race(scans.filter(scan=>scan.state==='pending').map(scan=>scan.promise));
         if(version!==sessionVersion)return;
@@ -317,22 +362,21 @@ $('predict-button').addEventListener('click',async()=>{
     }
     await Promise.all(scans.map(scan=>scan.promise));
     if(version!==sessionVersion)return;
+    if(scans.some(scan=>scan.state==='editing'))throw new Error('An earlier photo has edited boxes. Select it and choose Finish & see result to recalculate it first.');
     const readings=scans.filter(scan=>scan.state==='complete').map(scan=>scan.result);
     if(!readings.length)throw new Error('No photos could be read. Please retake a clear photo and mark the three regions.');
     averageController=new AbortController();const timer=setTimeout(()=>averageController?.abort(),15000);
     let response;
     try{response=await fetch('./api/scans/average',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({readings}),signal:averageController.signal});}
-    catch{throw new Error('Your readings are still here. Make sure the local Kera server is running, then choose End scan now again.');}
+    catch{throw new Error('Your readings are still here. Make sure the local Kera server is running, then choose Finish & see result again.');}
     finally{clearTimeout(timer);averageController=null;}
     const result=await response.json().catch(()=>null);
-    if(!response.ok)throw new Error(result?.error?.message||'The average could not be calculated. Choose End scan now to try again.');
-    if(!result||!Number.isFinite(result.hemoglobin_g_per_l)||result.scan_count!==readings.length||!Array.isArray(result.warnings))throw new Error('The average response could not be read. Choose End scan now to try again.');
+    if(!response.ok)throw new Error(result?.error?.message||'The average could not be calculated. Choose Finish & see result to try again.');
+    if(!result||!Number.isFinite(result.hemoglobin_g_per_l)||result.scan_count!==readings.length||!Array.isArray(result.warnings))throw new Error('The average response could not be read. Choose Finish & see result to try again.');
     if(version!==sessionVersion)return;
     hbResultReady=true;
-    const adjusted=adjustHemoglobin(result.hemoglobin_g_per_l,adjustmentEnabled);
-    $('prediction-value').textContent=adjusted.value.toFixed(1);
-    $('result-caption').textContent=adjustmentEnabled?'Camera-adjusted average estimate':'Average estimated hemoglobin';
-    $('adjustment-caption').textContent=adjustmentEnabled?`Raw model average: ${adjusted.raw.toFixed(1)} g/L.`:'';
+    $('prediction-value').textContent=result.hemoglobin_g_per_l.toFixed(1);
+    $('result-caption').textContent='Average estimated hemoglobin · unadjusted model output';
     const failed=scans.filter(scan=>scan.state==='failed').length;
     $('average-caption').textContent=`Based on ${result.scan_count} ${result.scan_count===1?'reading':'readings'}.${failed?` ${failed} ${failed===1?'photo could':'photos could'} not be read and ${failed===1?'was':'were'} left out.`:''}`;
     const warningArea=$('quality-warnings');warningArea.replaceChildren();
@@ -372,7 +416,7 @@ regionHelp.addEventListener('click',event=>{
 for(const id of ['about-button','footer-about'])$(id).addEventListener('click',()=>$('model-dialog').showModal());
 for(const button of document.querySelectorAll('.close-dialog'))button.addEventListener('click',()=>$('model-dialog').close());
 $('model-dialog').addEventListener('click',event=>{if(event.target===$('model-dialog')){const r=$('model-dialog').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)$('model-dialog').close();}});
-window.addEventListener('pagehide',()=>{sessionVersion++;cameraRequest++;loadVersion++;averageController?.abort();processor.close();scans=[];stopTracks();snapshot=null;context.clearRect(0,0,photo.width,photo.height);});
+window.addEventListener('pagehide',()=>{scanHistory.clear();sessionVersion++;cameraRequest++;loadVersion++;averageController?.abort();processor.close();scans=[];stopTracks();snapshot=null;context.clearRect(0,0,photo.width,photo.height);});
 window.addEventListener('pageshow',event=>{if(event.persisted){hbResultReady=false;processor=createScanProcessor();currentScanId=null;boxes={};finalizing=false;actionBusy=false;uploadBusy=false;visual.reset(false);$('prediction-value').textContent='—';setMode('empty');updateRegions();}});
 async function loadModel(){
   try{const response=await fetch(new URL('./assets/model.json',import.meta.url));if(!response.ok)throw new Error('Model download failed');model=validateModel(await response.json());$('model-note').textContent='Trained neural network. Runs on your device.';updateRegions();}

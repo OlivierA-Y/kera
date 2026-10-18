@@ -11,10 +11,37 @@ function encodePhoto(source){
   if(data.length>2500000)throw new Error('This photo is too detailed to send. Try a closer crop of the affected area.');
   return data;
 }
-export function initializeVisualAnalysis({getPhoto}){
+export function initializeVisualAnalysis({getPhoto,onResult=()=>{},onAdditionalPhoto=()=>{}}){
   let ready=false,topData=null,sideData=null,controller=null,generation=0,busy=false,photoReady=false,sideVersion=0,remoteSent=false;
   const dialog=$('vision-dialog'),send=$('send-vision'),consent=$('vision-consent');
   const careReview=createCareReview($('vision-results'));
+  let hasReview=false,sideHistoryId=null;
+  function displayReview(open){
+    $('workspace').hidden=open;
+    $(open?'review-history-slot':'photo-history-slot').append($('scan-history'));
+    $('review-page').hidden=!open;
+    document.querySelector('.skip-link').href=open?'#review-page-title':'#workspace';
+    document.querySelector('.skip-link').textContent=open?'Skip to results':'Skip to camera';
+    if(open){$('review-page-title').focus({preventScroll:true});window.scrollTo({top:0,behavior:'instant'});}
+  }
+  function openResults(){
+    if(!hasReview)return;
+    if(location.hash!=='#review')history.pushState(null,'','#review');
+    displayReview(true);
+  }
+  function closeResults(){
+    displayReview(false);
+    if(location.hash==='#review')history.replaceState(null,'',location.pathname+location.search);
+  }
+  $('back-to-capture').addEventListener('click',()=>{
+    if(location.hash==='#review')history.back();else closeResults();
+  });
+  $('reopen-review').addEventListener('click',openResults);
+  window.addEventListener('popstate',()=>{
+    if(location.hash==='#review'&&hasReview)displayReview(true);else closeResults();
+  });
+  // Reviews live in memory only. A reload must not suggest a recovered result.
+  if(location.hash==='#review')closeResults();
   function feedback(message){$('vision-error').textContent=message;$('vision-error').hidden=!message;}
   function updateSend(){send.disabled=!ready||!topData||!consent.checked||busy||$('side-input').disabled;}
   async function checkServer(){
@@ -32,9 +59,9 @@ export function initializeVisualAnalysis({getPhoto}){
     }
     updateSend();
   }
-  function clearResults(){ careReview.clear();$('vision-results').hidden=true;$('review-categories').hidden=false;document.querySelector('.visual-intro').hidden=false; }
+  function clearResults(){ hasReview=false;closeResults();$('reopen-review').hidden=true;careReview.clear();$('vision-results').hidden=true;$('review-categories').hidden=false;document.querySelector('.visual-intro').hidden=false; }
   function reset(hasPhoto){
-    photoReady=hasPhoto;generation++;sideVersion++;controller?.abort();controller=null;busy=false;topData=null;sideData=null;remoteSent=false;
+    photoReady=hasPhoto;sideHistoryId=null;generation++;sideVersion++;controller?.abort();controller=null;busy=false;topData=null;sideData=null;remoteSent=false;
     consent.checked=false;send.textContent='Send photos';$('side-input').value='';$('side-preview').removeAttribute('src');$('side-preview').hidden=true;$('remove-side').hidden=true;
     $('top-preview').removeAttribute('src');$('vision-preview-area').hidden=false;
     $('side-label').textContent='Add another angle';$('side-input').disabled=false;
@@ -47,7 +74,7 @@ export function initializeVisualAnalysis({getPhoto}){
     $('add-angle').textContent='＋ Another angle';
   }
   function removeSide(){
-    generation++;controller?.abort();controller=null;busy=false;sideVersion++;sideData=null;
+    generation++;controller?.abort();controller=null;busy=false;sideVersion++;sideData=null;sideHistoryId=null;
     $('vision-busy').hidden=true;$('cancel-vision').hidden=true;$('side-input').disabled=false;
     $('open-vision').disabled=!photoReady;$('open-vision').textContent='Preview photos';$('add-angle').disabled=false;
     $('side-preview').removeAttribute('src');$('side-preview').hidden=true;$('remove-side').hidden=true;
@@ -78,7 +105,9 @@ export function initializeVisualAnalysis({getPhoto}){
       try{
         if(version!==sideVersion||current!==generation)return;
         if(bitmap.width*bitmap.height>24000000)throw new Error('Use an additional photo under 24 megapixels.');
-        sideData=encodePhoto(bitmap);$('additional-preview').src=sideData;$('additional-photo').hidden=false;$('add-angle').textContent='＋ Replace angle';$('side-preview').src=sideData;$('side-preview').hidden=false;$('remove-side').hidden=false;$('side-label').textContent='Replace additional photo';
+        const key=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer())),n=>n.toString(16).padStart(2,'0')).join('');
+        if(version!==sideVersion||current!==generation)return;
+        sideData=encodePhoto(bitmap);sideHistoryId=onAdditionalPhoto(bitmap,key);$('additional-preview').src=sideData;$('additional-photo').hidden=false;$('add-angle').textContent='＋ Replace angle';$('side-preview').src=sideData;$('side-preview').hidden=false;$('remove-side').hidden=false;$('side-label').textContent='Replace additional photo';
         consent.checked=false;feedback('');
       }finally{bitmap.close();}
     }catch(e){feedback(e.message||'The additional photo could not be read.');}
@@ -89,7 +118,7 @@ export function initializeVisualAnalysis({getPhoto}){
     const container=$('vision-results');
     if(!careReview.show(value))throw new Error('The observation response is incomplete or unsupported. No findings or handoff draft are shown. Try again.');
     $('review-categories').hidden=true;document.querySelector('.visual-intro').hidden=true;$('open-vision').textContent='Review again';container.hidden=false;container.setAttribute('tabindex','-1');container.focus({preventScroll:true});
-    if(window.innerWidth<740)container.scrollIntoView({block:'start',behavior:'instant'});
+    onResult(value,sideHistoryId);hasReview=true;$('reopen-review').hidden=false;openResults();
   }
   $('vision-form').addEventListener('submit',async(event)=>{
     event.preventDefault();if(!ready||!topData||!consent.checked||busy)return;
@@ -115,5 +144,9 @@ export function initializeVisualAnalysis({getPhoto}){
   });
   $('cancel-vision').addEventListener('click',()=>controller?.abort('user'));
   window.addEventListener('pagehide',()=>reset(false));
-  return{reset,deactivate(){reset(photoReady);}};
+  function restoreReview(value){
+    if(!careReview.show(value))return;
+    hasReview=true;$('vision-results').hidden=false;$('reopen-review').hidden=false;$('open-vision').textContent='Review again';
+  }
+  return{reset,restoreReview,deactivate(){reset(photoReady);}};
 }
